@@ -1,0 +1,109 @@
+GRA-EXT
+=======
+
+Autor: Johann Klasek, johann AT klasek at
+
+
+Versionen:
+	2016-01-14 v 1.18		in ACME-Source übertragen
+					Binär dem Original 1992 entsprechend,
+					inklusive aller Bugs.
+	1992-12-28 v 1.18		Kommandosyntax ohne ","
+					Verteils (z.B. an Michael Rautner)
+	1986-03-24 v 1.17		Finale Version
+					zur damaligen Zeit üblicherweise
+					in Verwendung (Maturazeitungsdiagramme)
+	1985       v 0.00 - 1.16
+
+
+Wunschliste:
+
+ * Grafik einschalten ohne löschen.
+ * Grafik löschen separat und besonders schnell!
+ * GETXY-Funktion
+ * Fill
+ * Circle
+ * Clipping: trotzdem Zeichnen, aber am Rand aufhören.
+ * Fehlerbehandlung auswählbar.
+ * Multicolor?
+
+Geschichte:
+
+Die Wurzeln der Erweiterung liegen bei der Grafikerweiterung für die
+Forth-Umgebung Performance Micro Prod. von Greg Harris. Die im (eigenen)
+Forth-Assembler codierten Routinen sind dahingehend optimiert, dass die
+auf dem Bresenham-Algorithmus basierende Umsetzung ohne ständige
+Punktpositionsberechung arbeitet, sondern der Grafikcursor als Adresse
+und Bitposition geführt wird.
+Ein gleichwertige Implementierung findet man auch im Spiel Elite, wobei dort
+der Grafikbereich so eingeschränkt ist, dass die X-Koordinate mit einem Byte
+auskommt (0-255), was eine noch schnellere Implementierung erlaubt.
+Dazu kamen auch noch speziell optimiert Varianten für eine horizontale
+und vertikale Linie, die auch als Sonderfall beim gewöhnlichen Linienbefehl
+Verwendung finden.
+
+Eine Verwendung für BASIC war wegen der Akzeptanz dringend notwendig,
+was zur Entwicklung einer entsprechenden BASIC-Erweiterung führte. Das
+genaue Zustandekommen der Übertragung aus dem Forth-Code ist nicht mehr
+nachvollziehbar, da entsprechende Aufzeichnung fehlen. Vermutet werden
+kann, dass Code entweder 1:1 herauskopiert wurde und dabei mit
+Hilfe eines Monitors der Code verschoben und dessen absoluten Referenzen
+und Zeropage-Adressen automatisch angepasst wurden. Der Glue-Code für den
+Basic-Interpreter wurde direkt mit einem Monitor assembliert und
+schließlich ohne eigentlichem Sourcecode abgespeichert.
+Oder es wurde ein Assembler-Source vom Forth-Source konvertiert und
+dann mit dem Glue-Code versehen. Der Source-Code ist aber nicht mehr
+auffindbar, der diese Variante hätte belegen können.
+
+Dabei ist der Code für den Punkttest (unter Forth "TEST") zwar enthalten,
+wird aber vom Glue-Code nicht in den Interpreter eingebunden.
+
+
+Verwendung
+----------
+
+
+
+LOAD"G-EXT18",8,1
+NEW
+LOAD"....",8
+
+1 SYS49152
+
+
+
+
+Source
+------
+
+
+Makefile		Erstellen von
+			make
+				erstellt Gra-Ext PRGs
+			make i
+				erstellt D64-Image x.d64
+
+g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
+g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
+			Distributionsdisk
+
+
+graext.asm
+graext.hex		Binary im Hex-Format für den diff-Vergleich
+			mit der Referenz g-ext18.hex
+			War nur für die Source-Wiederherstellung
+			auf Basis des 1.8-Codes verwendet worden.
+
+graext.l		ACME Listing-Ausgabe
+graext.o		ACME Objekt-Datei (CBM-Format)
+graext.r		ACME Report-Ausgabe
+
+info.txt		diese Datei
+
+x.d64			D64-Image, erstell mittel
+			make x.d64
+			oder
+			make i
+
+
+

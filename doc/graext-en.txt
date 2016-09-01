@@ -1,0 +1,104 @@
+######### gra-ext v1.8 #########
+
+*** Commands:
+
+&P x,y
+	Plot: set/reset/toggle pixel at position x,y
+	0<=x<=319
+	0<=y<=199
+
+&M x,y
+	Move: The unvisible pixel cursor is moved to position x,y
+	x,y see plot.
+
+&G 0
+&G 1,fg,bg
+&G 2,fg,bg
+	Graphic mode: turn on/off graphic mode
+	0 turn off (without further parameters)
+	1 turn on with forground color fg, background color bg
+	2 like 1, but without screen erasing
+	0<=fg<=15
+	0<=bg<=15
+
+&L x0,y0,x1,y1
+	Line: draw a line from absolute position 0 to absolute position 1
+	x0,y0 and x1,y1 coordinates as described at plot.
+
+&H x,y,xl
+	Horizontal line: draw a horizontal line from position x,y xl
+	pixels to the right.
+
+&V x,y,yl
+	Vertical line: draw a vertical line from position x,y yl pixels
+	down.
+
+&S m
+	Set mode: defines operational mode for all drawing commands
+	m=0 reset pixel (to background color)
+	m=1 set pixel (to foreground color)
+	m=2 toggle pixel
+
+&C cx,cy,string
+
+	Character: Write characters on the grafical screen at text mode
+	positions. 
+	string a string expression
+	cx,cy text mode character position (not a pixel position!)
+	0<=cx<=39
+	0<=cy<=24
+
+&T x,y
+	Line to: draw a line from the pixel cursor position to the
+	absolute coordinates x,y
+
+&R x,y
+	Line to relative: draw a line from the pixel cursor position to
+	the position dx,dy relative to the pixel cursor's position.
+
+
+**** Usage hints and technical parameters
+
+Important! This extension has to be intialized by doing an initial
+	SYS 49152
+
+The bitmap memory range starts at $E000 (57344), taking 8000 bytes -
+good to know if some hardcopy program needs access to the bitmap.
+
+If a GRA-EXT command follows a "THEN", you have to insert an extra ":".
+Otherwise a syntax error happens.
+
+The color information for the hires screen is located at $CC00 (52224),
+taking 1000 bytes.
+
+The extension itself is located in the range from $C000 to $CBFF (49152
+to 52223).
+
+
+**** Run-time behavior
+
+Many basic extension do exist and a lot of them are carrying dozens of
+other commands (well known ones up to over 100 additional commands).
+Just for simple graphical usage with these extensions a user is burden
+with to much overhead in memory consumption and loading time. It's
+frustrating to load 70 blocks every time just to do some simple
+graphical programming.
+
+Such disadvantages prevents GRA-EXT. It is short and efficient. You may
+chain load this extension without currupting the main program.
+
+The implemention is very optimized (fast line drawing algorithm with in
+bitmap shifting) leading to a very fast execution timing.
+
+Compared to Simon's Basic up to 4-5 times faster, or 2-3 times faster
+then the graphical command set of most of any other extensions.
+
+
+
+**** Author
+
+http://www.klasek.at/c64
+
+johann (at) klasek (dot) at
+
+
