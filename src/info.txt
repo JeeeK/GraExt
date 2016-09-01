@@ -5,6 +5,8 @@ Autor: Johann Klasek, johann AT klasek at
 
 
 Versionen:
+        2016-01-18 v 1.19               Bug in Line flat/up
+                                        no_error=1 ... kein Illegal Quantity Error
 	2016-01-14 v 1.18		in ACME-Source übertragen
 					Binär dem Original 1992 entsprechend,
 					inklusive aller Bugs.

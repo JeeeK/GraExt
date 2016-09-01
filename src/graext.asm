@@ -5,6 +5,7 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 ; revisions:
+;	2016-01-15 v 1.19
 ;	1992-12-28 v 1.18
 ;	1986-03-24 v 1.17
 ;	1985       v 0.00 - 1.16
@@ -109,25 +110,6 @@ gcol	= $FD		; graphic color, in "graphic on" context only
 ; initialize extension
 
 init
-
-; CHANGE: remove ...
-        LDY #$00
-        LDX #$20	; page count
-        LDA #>basic_rom	; 
-        STA gpos+1
-        STY gpos
-copyloop
-        LDA (gpos),Y	; copy basic rom to ram
-        STA (gpos),Y
-        INY
-        BNE copyloop
-        INC gpos+1
-        DEX
-        BNE copyloop
-        LDA #membas	; switch basic to ram copy
-        STA prozport
-; CHANGE: ... until here: basic ram copy not needed!?
-
         LDA #<(parse)	; basic interpreter parser hook
         STA v_bascmd
         LDA #>(parse)
@@ -152,9 +134,6 @@ newcmd
 					; command address ...
 checknextcmd
         DEY
-; BUG: replace
-        BEQ $C050			; BUG $C050
-; BUG: ... by:
 ;	BEQ parse_exit
         CMP cmds,Y
         BNE checknextcmd		; try next
@@ -173,20 +152,13 @@ parse_exit
 
 ;-----------------------------------------------------------------
 
-	!byte $53,$47			; not used
-
 cmds	!text " PLRHCTMVSG"		; first char. is a dummy
 cmdsend
-	!text "                "	; not used, for future extension
 
 cmdaddr
         !word plot, line, relto,hline,char,to,move,vline,setmode,graphic
 
-	!byte  00,00,00,00,00,00,00,00,00,00	; not used
-
-author	!text "JOHANN KLASEK/24.3.1986/V1.17"
-
-	!byte 0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0	; not used
+author	!text "JOHANN KLASEK/1986,2016/V1.19"
 
 bitmask
 	!byte $80, $40, $20, $10, $08, $04, $02, $01
@@ -206,10 +178,6 @@ ytabh
 savexl	!byte $3a
 savexh	!byte $01
 savey	!byte $71
-
-; not used
-	!byte $00
-;	!byte $c6,$00,$0d,$00
 
 ; for horiz. line
 
@@ -356,7 +324,7 @@ position
 
 ; line y up, x right, dx < dy (case 1)
 
-line_down_steep
+line_up_steep
         JSR position	; x,y
 loop_yup_xright
         JSR gchange	; pixel
@@ -376,10 +344,10 @@ loop_yup_xright
         INX		; x++
         CPX #8
         BNE +
+	; C=1
         LDX #0		; x overflow, wrap around
-        CLC
         LDA gaddr	; x+8: gaddr += 8
-        ADC #8
+        ADC #8-1	; C already set by CPX
         STA gaddr
         BCC +
         INC gaddr+1
@@ -391,7 +359,7 @@ loop_yup_xright
         SBC #$40	; y-8: gaddr -= 40*8 ($140)
         STA gaddr
         LDA gaddr+1
-        SBC #$01
+	SBC #1
         STA gaddr+1
         LDY #7		; wrap around
 
@@ -406,6 +374,10 @@ loop_yup_xright
 
 line_up_flat
         JSR position	; x,y
+	LDA cl		; counter adjustment for
+	BEQ +		; dec-dec-counting
+	INC ch
++
 loop_xright_yup
         JSR gchange	; pixel
 
@@ -425,37 +397,35 @@ loop_xright_yup
         LDA kl
         SBC dxl
         STA kl
+	; C=1 always because k>=dx
 
         DEY		; y--
         BPL +
-        SEC		; y overflow
-        LDA gaddr
+	; C=1, from SBC above
+        LDA gaddr	; y overflow
         SBC #$40	; y-8: gaddr -= 40*8 ($140)
         STA gaddr
         LDA gaddr+1
-        SBC #$01
+	SBC #1
         STA gaddr+1
-        LDY #7		; wrap around
+	LDY #7		; wrap around
 
 +	INX		; x++
         CPX #8		; x overflow?
         BNE ++
+	; C=1
         LDX #0		; wrap around
-        CLC
         LDA gaddr	; x+8: gaddr += 8
-        ADC #8
+        ADC #8-1	; C already set by CPX
         STA gaddr
         BCC ++
         INC gaddr+1
 ++
-	LDA cl		; c--
-        BNE +++
-        DEC ch
-+++	DEC cl
-
-        LDA cl		; until c=0
-        ORA ch
+	DEC cl		; c--
         BNE loop_xright_yup
+        DEC ch		; adjusted high which allows this
+        BNE loop_xright_yup
+
         JMP gexit
 
 
@@ -466,6 +436,10 @@ loop_xright_yup
 
 line_down_flat
         JSR position	; x,y
+	LDA cl		; counter adjustment for
+	BEQ +		; dec-dec-counting
+	INC ch
++
 loop_xright_ydown
         JSR gchange	; pixel
 
@@ -489,34 +463,31 @@ loop_xright_ydown
         INY		; y++
         CPY #8
         BNE +
-        CLC		; y overflow
-        LDA gaddr
-        ADC #$40	; y+8: gaddr += 40*8 ($140)
+	; C=1
+        LDA gaddr	; y+8: gaddr += 40*8 ($140)
+        ADC #$40-1	; C already set by CPY
         STA gaddr
         LDA gaddr+1
-        ADC #$01
+	ADC #1
         STA gaddr+1
         LDY #0		; wrap around
 
 +	INX		; x++
         CPX #8		; x overflow ?
         BNE +++
+	; C=1
         LDX #$00	; wrap around
-        CLC		; gaddr += 8
-        LDA gaddr
-        ADC #$08
+        LDA gaddr	; gaddr += 8
+        ADC #$08-1	; C always set by CPX
         STA gaddr
         BCC +++
         INC gaddr+1
 +++
-	LDA cl		; c--
-        BNE ++
-        DEC ch
-++	DEC cl
-
-        LDA cl		; until c=0
-        ORA ch
+	DEC cl		; c--
         BNE loop_xright_ydown
+        DEC ch		; adjusted high which allows this
+        BNE loop_xright_ydown
+
         JMP gexit
 
 
@@ -524,7 +495,7 @@ loop_xright_ydown
 
 ; line y down, x right, dx < dy (case 4)
 
-line_up_steep
+line_down_steep
         JSR position	; x,y
 loop_ydown_xright
         JSR gchange	; pixel
@@ -543,9 +514,8 @@ loop_ydown_xright
         CPX #8
         BNE +		; x overflow?
         LDX #0		; wrap around
-        CLC
         LDA gaddr	; x+9: gaddr += 8
-        ADC #8
+        ADC #8-1	; C already set by CPX
         STA gaddr
         BCC +
         INC gaddr+1
@@ -553,12 +523,11 @@ loop_ydown_xright
 +	INY		; y++
         CPY #8		; y overflow?
         BNE +++
-        CLC
-        LDA gaddr
-        ADC #$40	; y+8: gaddr += 40*8 ($140)
+        LDA gaddr	; y+8: gaddr += 40*8 ($140)
+        ADC #$40-1	; C already set by CPY
         STA gaddr
         LDA gaddr+1
-        ADC #$01
+	ADC #1
         STA gaddr+1
         LDY #0		; wrap around
 
@@ -579,7 +548,11 @@ getxy
 	BCC gcxy_xok
         BEQ +		; X = $1xx
 error_iq
+!ifdef no_error {
+	RTS
+} else {
         JMP b_illquant
+}
 +	CPY #<xmax	; check X low
         BCS error_iq	; X to big
 gcxy_xok
@@ -620,12 +593,20 @@ hline
         CLC
         ADC xl		; low xend = x+length
         STA xendl
-        STA savexl	; also save as cursor
+	TAY
         TXA		; high
         ADC xh		; high xend = x+length
         STA xendh
-        STA savexh
-			; BUG: endposition not checked!
+	TAX
+
+	CMP #>xmax	; endpoint outside?
+	BCC +
+	TYA
+	SBC #<xmax
+	BCS error_iq
++
+        STX savexh
+        STY savexl	; also save as cursor
 
         JSR ginit	; map in graphic memory
 
@@ -640,6 +621,7 @@ hline_start
         LDA xl
         STX xl
         STA xendl
+
         LDX xendh
         LDY xh
         STY xendh
@@ -652,10 +634,9 @@ hl_noxswap
         BNE hl_start
         LDA xendh
         CMP xh
-        BNE hl_start
-			; x = xend
-			; CHANGE: shouldn't it be plot?
-        JMP gexit
+        BNE hl_start	; x = xend ->
+	JMP plot_start	; single point
+;	JMP gexit	; no point
 
 hl_start
         JSR position	; graphic position x,y
@@ -695,11 +676,7 @@ hl_islastblock
         BCC +
         INC gaddr+1
 +	LDA #$FF	; following with full 8-pixel mask
-; CHANGE: optimize: replace ...
-        DEX		; CHANGE: replace
-        JMP hl_islastblock	; CHANGE: replace
-; CHANGE: ... by:
-;	BNE hl_nextblock	; always
+	BNE hl_nextblock	; always
 
 hl_lastblock
         LDX tmp2	; xend mask index
@@ -728,10 +705,17 @@ vline
         ADC y		; length + y
         CMP #ymax
         BCC +
+vline_iq
+!ifdef no_error {
+	RTS
+} else {
         JMP b_illquant
-
+}
 +	STA yend	; endpoint
-;	STA savey	; BUG: missing
+	CMP #ymax	; outside?
+	BCS vline_iq
+
+	STA savey	; set cursor y position
 
         JSR ginit	; map in graphic memory
 
@@ -743,19 +727,18 @@ vline_start
         LDX yend
         STA yend
         STX y
-        JMP vl_start	; CHANGE: replace by (be relative)
-;	BEQ vl_start	; always (with next branch)
-
+	BEQ vl_start	; always (with next branch)
+	; fall through if yend is
 vl_noyswap
         BNE vl_start	; y = yend ->
-			; CHANGE: shouldn't it be plot?
-        JMP gexit
+	JMP plot_start	; single point
+;	JMP gexit	; no point
 
 vl_start
         JSR position	; graphic position x,y
         LDA bitmask,X
         STA tmp2	; save mask
-; CHANGE: replace ...
+; DON'T-CHANGE: replace ...
         SEC
         LDA yend
         SBC y		; vertical length
@@ -770,10 +753,8 @@ vl_nextline
         INY		; go down
         CPY #8		; 8-line wrap
         BNE +
-        CLC		; CHANGE: optimize: C is already set
         LDA gaddr	; gaddr += 320
-        ADC #$40	; CHANGE: optimize: replace by
-;	ADC #$40-1	; compensate for C = 1
+	ADC #$40-1	; compensate for C = 1
         STA gaddr
         LDA gaddr+1
         ADC #$01
@@ -817,6 +798,7 @@ line_start
         STA dxh
 
         BCS li_xend_right
+	; dx != 0
         TYA		; negate dx
         SEC		; dx = 0 - dx
         SBC dxl
@@ -824,7 +806,7 @@ line_start
         TYA
         SBC dxh
         STA dxh
-
+			; C=0 always, needed later
         LDX xl		; swap x low
         LDY xendl
         STX xendl
@@ -840,8 +822,8 @@ line_start
         STX yend
         STY y
 
-        JMP li_x_different
-			; CHANGE: branch?
+        BCC li_x_different
+			; C=0 always (from negation before)
 
 li_xend_right
         LDA dxl		; dx = 0?
@@ -863,13 +845,7 @@ li_y_right
         BNE +
         JMP hline_start	; horizontal line case
 +
-
-        LDA dxl		; CHANGE: remove: dx and dy is *always* !=0 !!!
-        ORA dxh		; CHANGE: remove
-        ORA dy		; CHANGE: remove
-        BNE +		; CHANGE: remove
-        JMP gexit	; CHANGE: remove
-+
+	; dx and dy is *always* !=0, otherwise hline or vline got called.
 
         LDA dxh		; dx > dy
         BNE line_flat	; yes -> flat
@@ -885,8 +861,8 @@ line_steep
         STA kl
         LDA ydir
         BNE +
-        JMP line_up_steep	; y down, steep
-+	JMP line_down_steep	; y up, steep
+        JMP line_down_steep	; y down, steep
++	JMP line_up_steep	; y up, steep
 
 line_flat
         LDA dxh
@@ -919,17 +895,16 @@ plot
         STY savexl
         STX savey
 
-; CHANGE: shift SEI 2 lines lower immediate before STA
-        SEI			
+plot_start
+        JSR position	; calculate graphical address
+
         LDA prozport
         AND #%11111101	; Kernal ROM disable
+        SEI			
         STA prozport
 
-; CHANGE: postion calculation to be moved before Kernal ROM disable
-        JSR position	; calculate graphical address
         JSR gchange	; change graphical data
 
-			; CHANGE: optimize: JMP gexit
         LDA prozport
         ORA #%00000010	; kernal ROM enable
         STA prozport
@@ -1009,14 +984,13 @@ get
         STY xl
         STX y
 
-; CHANGE: shift 2 lines below
-        SEI
+        JSR position
+
         LDA prozport
 	AND #%11111101	; Kernal ROM disable
+        SEI
         STA prozport
 
-; CHANGE: move before ROM disable ...
-        JSR position
         LDA (gaddr),Y
         AND bitmask,X
         TAY
@@ -1025,9 +999,6 @@ get
         STA prozport
         CLI
         JMP b_byte2fac
-
-
-        JSR b_getcomma	; not used
 
 
 ;-----------------------------------------------------------------
@@ -1063,7 +1034,11 @@ relto
         BCC rt_xok
         BEQ +
 relto_error
+!ifdef no_error {
+	RTS
+} else {
         JMP b_illquant
+}
 +	LDA xendl
         CMP #<xmax
         BCS relto_error
