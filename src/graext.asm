@@ -5,6 +5,7 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 ; revisions:
+;	2016-02-23 v 1.20
 ;	2016-01-15 v 1.19
 ;	1992-12-28 v 1.18
 ;	1986-03-24 v 1.17
@@ -16,6 +17,8 @@
 ; the code has been pulled out from there and enriched
 ; with some glue code to get a basic extension.
 
+; command dispatcher style JMP/RTS
+;command_rts_style=1
 
 *= $c000
 
@@ -123,42 +126,60 @@ init
 
 parse
         JSR chrget			; next char.
+	PHP
         CMP #'&'			; command prefix
         BEQ newcmd
-        CMP #$00			; restore flags
+        PLP
         JMP b_execstatement
 newcmd
+	PLP
         JSR chrget			; command character
 
         LDY #(cmdsend-cmds)		; map character to
 					; command address ...
 checknextcmd
         DEY
-;	BEQ parse_exit
+	BEQ parse_exit
         CMP cmds,Y
         BNE checknextcmd		; try next
         DEY				; found
         TYA
         ASL				; *2
         TAY
-        LDA cmdaddr+1,Y			; high byte from table
+!ifndef command_rts_tyle {
+	!set co=0			; command offset in jump table
+        LDA cmdaddr+1,Y                 ; high byte from table
         STA ijmp+1
-        LDA cmdaddr,Y			; low byte from table
+        LDA cmdaddr,Y                   ; low byte from table
         STA ijmp
-        JSR chrget
-        JSR ijmp-1			; JMP (addr)
+        JSR chrget			; read next byte in basic text
+        JSR ijmp-1                      ; go to command by JMP (addr)
+} else {
+	!set co=1			; command offset in jump table
+	LDA #>(b_interpreter-1)		; return to interpreter
+	PHA
+	LDA #<(b_interpreter-1)
+	PHA				
+        LDA cmdaddr+1,Y			; command address (RTS style)
+        PHA				; high byte on stack
+        LDA cmdaddr,Y			; command address (RTS style)
+        PHA				; low byte on stack
+        JMP chrget			; read next byte in basic text 
+					; and RTS to command
+}
 parse_exit
         JMP b_interpreter		; continue parsing
 
 ;-----------------------------------------------------------------
 
-cmds	!text " PLRHCTMVSG"		; first char. is a dummy
+cmds	!text " GCSMRTVHLP"		; first char. is a dummy
 cmdsend
 
 cmdaddr
-        !word plot, line, relto,hline,char,to,move,vline,setmode,graphic
+        !word graphic-co,char-co,setmode-co,move-co,relto-co
+        !word to-co,vline-co,hline-co,line-co,plot-co
 
-author	!text "JOHANN KLASEK/1986,2016/V1.19"
+author	!text "JOHANN KLASEK/1986,2016/V1.20"
 
 bitmask
 	!byte $80, $40, $20, $10, $08, $04, $02, $01
@@ -397,11 +418,10 @@ loop_xright_yup
         LDA kl
         SBC dxl
         STA kl
-	; C=1 always because k>=dx
 
         DEY		; y--
         BPL +
-	; C=1, from SBC above
+	SEC		; C=1 not always true (SBC above)
         LDA gaddr	; y overflow
         SBC #$40	; y-8: gaddr -= 40*8 ($140)
         STA gaddr

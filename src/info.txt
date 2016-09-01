@@ -96,6 +96,8 @@ graext.hex		Binary im Hex-Format für den diff-Vergleich
 			War nur für die Source-Wiederherstellung
 			auf Basis des 1.8-Codes verwendet worden.
 
+ge.prg			Nur eine Kopie von graext.o, für das D64-Image
+
 graext.l		ACME Listing-Ausgabe
 graext.o		ACME Objekt-Datei (CBM-Format)
 graext.r		ACME Report-Ausgabe
