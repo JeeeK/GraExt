@@ -5,8 +5,13 @@ Autor: Johann Klasek, johann AT klasek at
 
 
 Versionen:
-        2016-01-18 v 1.19               Bug in Line flat/up
-                                        no_error=1 ... kein Illegal Quantity Error
+	2016-02-23 v 1.20		Optimierte Jump-Table, Bugfix Line
+					command_rts_style=1 ... Kommandoverteiler
+					via RTS statt JMP.
+					Bugfix Command-Hook: z.B. ":" am
+					Zeilenanfang lösten einen Syntax-Error aus.
+	2016-01-18 v 1.19               Bug in Line flat/up
+					no_error=1 ... kein Illegal Quantity Error
 	2016-01-14 v 1.18		in ACME-Source übertragen
 					Binär dem Original 1992 entsprechend,
 					inklusive aller Bugs.
@@ -89,6 +94,7 @@ g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
 			Distributionsdisk
 
+gliding-lines.prg	Grafik-Demo
 
 graext.asm
 graext.hex		Binary im Hex-Format für den diff-Vergleich
