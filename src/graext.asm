@@ -5,7 +5,7 @@
 ; 2016-05-18 johann e. klasek, johann at klasek at
 ;
 ; revisions:
-;	2016-05-18 v 1.21
+;	2016-06-16 v 1.24
 ;
 ;
 ; Usage: SYS49152
@@ -28,9 +28,15 @@ magic
 
 start
         jsr init                ; init extension (place hook)
+	ldx $3a			; direct mode flag
+	inx
+	beq interactive
+	rts			; simply return in running program
+interactive
         lda #<author            ; message ...
         ldy #>author
         jsr $ab1e               ; output string 
+
         jmp $e386               ; BASIC warm start
 
 !source "graext-core.asm"

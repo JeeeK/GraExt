@@ -53,9 +53,9 @@
 	gmask	= $3f5
 	basic_start	= $801	; unused
 	xh	= $9c
-	to	= $f34	; ?
-	char_inverse	= $eda	; unused
-	char_normal	= $f23	; ?
+	to	= $f37	; ?
+	char_inverse	= $eec	; ?
+	char_normal	= $eda	; unused
 	saveverr	= $338
 	hline_start	= $bb1
 	facexp	= $61
@@ -99,7 +99,7 @@
 	EOP	= $80b	; ?
 	gramp	= $e0
 	maskright	= $936
-	char_disp_leave	= $f1e	; ?
+	char_disp_leave	= $f32	; ?
 	relto_error	= $e5c	; ?
 	gram	= $e000
 	getcommaxy	= $b4c
@@ -119,7 +119,7 @@
 	newcmd	= $88d	; ?
 	savemo	= $337
 	cmdsend	= $8c1	; ?
-	unnew	= $f49	; ?
+	unnew	= $f4c	; ?
 	relto	= $e22	; ?
 	line_flat	= $d20	; ?
 	membas	= $36	; unused
@@ -132,7 +132,7 @@
 	hl_lastblock	= $c18	; ?
 	b_getexpr	= $ad9e
 	cmdaddr	= $8c1	; ?
-	char_line	= $f06
+	char_line	= $f1b
 	z_lastkey	= $d7
 	memrom	= $37	; unused
 	plot	= $d3f	; ?
@@ -148,7 +148,7 @@
 	vline_start	= $c4c
 	cl	= $a3
 	savevstp	= $33a
-	char_hires	= $ee8
+	char_hires	= $efa	; ?
 	co	= $0
 	tmp2	= $96
 	checknextcmd	= $893
@@ -169,6 +169,6 @@
 	gra0	= $945	; unused
 	gra1	= $96b	; ?
 	gra2	= $96e	; ?
-	graext_end	= $f6a	; ?
+	graext_end	= $f6d	; ?
 	hl_nextblock	= $c03
 	rt_xok	= $e65	; ?

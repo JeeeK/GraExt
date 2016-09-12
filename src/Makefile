@@ -49,7 +49,7 @@ tag:
 clean:
 	rm $(F).o
 
-x.d64 i: $(F).o $(FRUN).prg gliding-lines.prg debug.prg demo1.prg gliding-lines.prg
+x.d64 i: $(F).o $(FRUN).prg gliding-lines.prg debug.prg demo1.prg demo2.prg gliding-lines.prg
 	cp -p $(F).o ge.prg
 	FILE2DISK x.d64
 

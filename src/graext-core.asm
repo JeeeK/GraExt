@@ -3,6 +3,7 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 ; revisions:
+;	2016-06-16 v 1.24
 ;	2016-05-29 v 1.23
 ;	2016-05-20 v 1.22
 ;	2016-05-16 v 1.21
@@ -244,7 +245,7 @@ cmdaddr
         !word unnew-co,graphic-co,char-co,setmode-co,move-co,relto-co
         !word to-co,vline-co,hline-co,line-co,plot-co
 
-author	!text 147,"GRA-EXT V1.23 1986,2016 JOHANN@KLASEK.AT",0
+author	!text 147,"GRA-EXT V1.24 1986,2016 JOHANN@KLASEK.AT",0
 
 bitmask
 	!byte $80, $40, $20, $10, $08, $04, $02, $01
@@ -1264,7 +1265,18 @@ char_display
         TYA
         PHA
         LDA z_tmp	; get saved character
-        BPL char_normal
+        BMI char_inverse
+
+char_normal
+        CMP #$20	; control character?
+        BCC char_disp_leave
+        CMP #$60
+        BCC +
+        AND #%11011111	; $60-$7F -> $40-$5F
+        BNE char_hires
++	AND #%00111111  ; $40-$5F -> $00-$1F
+	BNE char_hires
+	BEQ char_hires
 
 char_inverse
         AND #%01111111	; mask bit 7
@@ -1282,13 +1294,15 @@ char_hires
         LDX z_reverseflag
         BEQ +
         ORA #%10000000	; invert char.
-+	PHA		; save char. for later
-        SEI
++	TAX		; save char. for later
+        LDA prozport	; save prozport state
+	PHA
         LDA #$21	; char. rom, no basic and kernal rom
+        SEI
         STA prozport	; char. rom base = $D000
         LDA #($D0 >> 3)	; $D0/8   1101 0000 -> 0001 1010
         STA gpos+1	; 
-        PLA		; char. code
+        TXA		; char. code
         ASL		; *8
         ROL gpos+1
         ASL
@@ -1304,7 +1318,7 @@ char_line
         DEY
         BPL char_line
 
-        LDA #$36	; no char. rom, basic ram, kernal rom
+	PLA
         STA prozport
         CLI
 
@@ -1321,16 +1335,6 @@ char_disp_leave
         PLA
         TAX
         RTS
-
-char_normal
-        CMP #$20	; control character?
-        BCC char_disp_leave
-        CMP #$60
-        BCC +
-        AND #%11011111	; $60-$7F -> $40-$5F
-        BNE ++
-+	AND #%00111111  ; $40-$5F -> $00-$1F
-++	JMP char_hires	; 		OPT: Bxx
 
 
 ;-----------------------------------------------------------------

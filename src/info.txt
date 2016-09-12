@@ -6,6 +6,11 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+	2016-06-16 v 1.24		Bugfix: &C korrigiert umstrukturiert.
+					Startmeldung nur im Direktmodus ausgeben.
+					Buggy:
+					&s3-5 funktioniert nicht.
+					Fehlerbehandlung unvollständig (für &s3-5)
 	2016-05-30 v 1.23		&U neu (UNNEW)
 					Buggy:
 					&s3-5 funktioniert nicht.
@@ -41,7 +46,8 @@ Versionen:
 
 ToDo:
 
- * &C Prozport nicht mit festen Wert überschreiben ($21), nur maskieren!
+ behoben:
+ * &C Prozport nicht mit festen Wert überschreiben ($21), nur maskieren! -> ab 1.24
 
 
 Wunschliste:
@@ -149,7 +155,10 @@ debug.prg		Grafik-Demo: Block-/Linien-Demo
 				zum Experimentieren (CBM-Format)
 
 demo1.bas		Grafik-Demo: Schirm mit Linien füllen (Textformat)
-demo1.bas		Grafik-Demo: Schirm mit Linien füllen (CBM-Format)
+demo1.prg		Grafik-Demo: Schirm mit Linien füllen (CBM-Format)
+
+demo2.bas		Grafik-Demo: Schirm mit mittigem Linienstrahlen füllen (Textformat)
+demo2.prg		Grafik-Demo: Schirm mit mittigem Linienstrahlen füllen (CBM-Format)
 
 g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
