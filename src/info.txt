@@ -6,6 +6,10 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+	2016-05-30 v 1.23		&U neu (UNNEW)
+					Buggy:
+					&s3-5 funktioniert nicht.
+					Fehlerbehandlung unvollständig (für &s3-5)
 	2016-05-20 v 1.22		&G Modi 3 (nur löschen) und 4 (nur aus)
 					&S neue Werte 3-5 für Fehlerbehandlung,
 					Fehlerbehandlung dynamisch (unvollständig)
@@ -42,7 +46,6 @@ ToDo:
 
 Wunschliste:
 
- * Unnew
  * Block gefüllt (&H anpassen?)
  * Fehlerbehandlung auswählbar.
  * Grafikcursor auslesen.
@@ -58,6 +61,7 @@ Wunschliste:
  * Multicolor?
 
 erledigt:
+ * Unnew -> ab 1.23
  * Grafik einschalten ohne löschen. -> ab 1.22
 
 

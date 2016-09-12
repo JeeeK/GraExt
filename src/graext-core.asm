@@ -3,6 +3,7 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 ; revisions:
+;	2016-05-29 v 1.23
 ;	2016-05-20 v 1.22
 ;	2016-05-16 v 1.21
 ;	2016-02-23 v 1.20
@@ -28,6 +29,8 @@
 ; basic interpreter registers, addresses and entry points
 
 str     = $22		; string address
+bassta	= $2b		; basic start pointer
+basend	= $2d		; basic end pointer
 ijmp    = $55		; address of JMP (addr)
 chrget  = $73		; basic charget routine
 facintl = $65		; integer result from b_fac2int
@@ -45,8 +48,9 @@ v_basexp = $030a	; vector evaluate expression
 
 basic_rom = $A000	; start of BASIC ROM
 
-b_interpreter =$A7AE	; interpreter loop
-b_execstatement =$A7E7	; process statement
+b_clr = $A660		; CLR command
+b_interpreter = $A7AE	; interpreter loop
+b_execstatement = $A7E7	; process statement
 b_getcomma = $AEFD	; read comma from basic text
 b_illquant = $B248	; error "illegal quantity"
 b_syntaxerror = $AF08	; error "syntax"
@@ -60,6 +64,7 @@ b_byte2fac =$B3A2	; convert Y to FAC (unsigned 8 bit)
 b_convint = $B7F7	; convert FAC to unsigned integer, return Y/A and $14/$15
 b_fac2int = $BC9B	; convert FAC to integer
 b_stringval = $B6A3	; take epression as string $22/$23 (str)
+b_rechain = $A533	; rechain basic lines
 
 ; hardware registers and values
 
@@ -232,14 +237,14 @@ parse_error
 
 ; the most commonly used command placed at the end ...
 
-cmds	!text " GCSMRTVHLP"		; first char. is a dummy
+cmds	!text " UGCSMRTVHLP"		; first char. is a dummy
 cmdsend
 
 cmdaddr
-        !word graphic-co,char-co,setmode-co,move-co,relto-co
+        !word unnew-co,graphic-co,char-co,setmode-co,move-co,relto-co
         !word to-co,vline-co,hline-co,line-co,plot-co
 
-author	!text 147,"GRA-EXT V1.22 1986,2016 JOHANN@KLASEK.AT",0
+author	!text 147,"GRA-EXT V1.23 1986,2016 JOHANN@KLASEK.AT",0
 
 bitmask
 	!byte $80, $40, $20, $10, $08, $04, $02, $01
@@ -1339,6 +1344,30 @@ to
         STA y
         JSR getxy
         JMP line_start
+
+;-----------------------------------------------------------------
+
+unnew
+
+	lda bassta
+	sta str
+	lda bassta+1
+	sta str+1
+	ldy #1
+	tya
+	sta (str),y		; != 0
+
+	jsr b_rechain		; starting from bassta
+				; result in (str)
+	clc			; str+1 -> new basic end
+	ldy str+1
+	lda str
+	adc #2
+	sta basend
+	bcc +
+	iny
++	sty basend+1
+	jmp b_clr		; perform CLR
 
 ;-----------------------------------------------------------------
 graext_end

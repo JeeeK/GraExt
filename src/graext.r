@@ -283,7 +283,7 @@
    244  c0b7 3fc734c179c67cc5...        !word unnew-co,graphic-co,char-co,setmode-co,move-co,relto-co
    245  c0c3 2ac719c468c384c4...        !word to-co,vline-co,hline-co,line-co,plot-co
    246                          
-   247  c0cd 934752412d455854...author	!text 147,"GRA-EXT V1.22 1986,2016 JOHANN@KLASEK.AT",0
+   247  c0cd 934752412d455854...author	!text 147,"GRA-EXT V1.23 1986,2016 JOHANN@KLASEK.AT",0
    248                          
    249                          bitmask
    250  c0f7 8040201008040201   	!byte $80, $40, $20, $10, $08, $04, $02, $01
