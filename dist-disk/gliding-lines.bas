@@ -1,7 +1,7 @@
     1 rem gra-ext gliding lines
     2 rem 2015-09-15 johann+c64@klasek.at
    10 deffnr(x)=int(rnd(1)*x)
-   11 sys49152
+   11 ifpeek(49153)+peek(49154)=21thensys49152
    50 r=rnd(-ti)
   100 &g 1,13,0:poke53280,15
   105 &s 2

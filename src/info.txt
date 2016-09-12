@@ -5,6 +5,10 @@ Autor: Johann Klasek, johann AT klasek at
 
 
 Versionen:
+
+	2016-02-23 v 1.21		graext-core.asm als Basis für
+					graext (ge) und ge-run (als
+					RUN-Programm, verschiebt Basic-Start!)
 	2016-02-23 v 1.20		Optimierte Jump-Table, Bugfix Line
 					command_rts_style=1 ... Kommandoverteiler
 					via RTS statt JMP.
@@ -22,6 +26,9 @@ Versionen:
 					in Verwendung (Maturazeitungsdiagramme)
 	1985       v 0.00 - 1.16
 
+ToDo:
+
+ * &C Prozport nicht mit festen Wert überschreiben ($21), nur maskieren!
 
 Wunschliste:
 
@@ -70,6 +77,28 @@ Verwendung
 ----------
 
 
+### RUN-Variante
+
+LOAD"GE-RUN",8
+RUN
+
+# Einschaltmeldung sollte erscheinen.
+
+LOAD"....",8
+
+
+
+### SYS-Variante
+
+LOAD"GE",8,1
+NEW
+LOAD"....",8
+
+1 IFPEEK(49153)+PEEK(49154)=21THENSYS49152
+
+
+
+### Originalvariante
 
 LOAD"G-EXT18",8,1
 NEW
@@ -90,13 +119,31 @@ Makefile		Erstellen von
 			make i
 				erstellt D64-Image x.d64
 
+debug.bas		Grafik-Demo: Block-/Linien-Demo
+				zum Experimentieren (Textformat)
+debug.prg		Grafik-Demo: Block-/Linien-Demo
+				zum Experimentieren (CBM-Format)
+
+demo1.bas		Grafik-Demo: Schirm mit Linien füllen (Textformat)
+demo1.bas		Grafik-Demo: Schirm mit Linien füllen (CBM-Format)
+
 g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
 			Distributionsdisk
 
-gliding-lines.prg	Grafik-Demo
+gliding-lines.bas	Grafik-Demo: Bewegendes Linienbündel (Textformat)
+gliding-lines.prg	Grafik-Demo: Bewegendes Linienbündel (CBM-Format)
 
-graext.asm
+ge-run.asm		Gra-Ext RUN-Variante, verwendet graext-core.asm
+ge-run.l		ACME Listing-Ausgabe der RUN-Variante
+ge-run.prg		ACME Objekt-Datei (CBM-Format) der RUN-Variante
+ge-run.r		ACME Report-Ausgabe der RUN-Variante
+
+
+graext-core.asm		Gra-Ext Core für RUN-Variante, SYS-Variante
+
+graext.asm		Gra-Ext SYS-Variante, verwendet graext-core.asm
+
 graext.hex		Binary im Hex-Format für den diff-Vergleich
 			mit der Referenz g-ext18.hex
 			War nur für die Source-Wiederherstellung
@@ -104,9 +151,9 @@ graext.hex		Binary im Hex-Format für den diff-Vergleich
 
 ge.prg			Nur eine Kopie von graext.o, für das D64-Image
 
-graext.l		ACME Listing-Ausgabe
-graext.o		ACME Objekt-Datei (CBM-Format)
-graext.r		ACME Report-Ausgabe
+graext.l		ACME Listing-Ausgabe der SYS-Variante
+graext.o		ACME Objekt-Datei (CBM-Format) der SYS-Variante
+graext.r		ACME Report-Ausgabe der SYS-Variante
 
 info.txt		diese Datei
 

@@ -1,0 +1,12 @@
+    1 ifpeek(49153)+peek(49154)=21thensys49152
+   50 &g1,5,0
+  100 &s2
+  110 fori=000to319
+  120 &l0,0,i,199:next
+  150 fori=199to0step-1
+  160 &l0,0,319,i:next
+  200 fori=000to319
+  220 &vi,0,199:next
+  250 fori=000to199
+  260 &h0,i,319:next
+ 9999 wait198,1:&g0
