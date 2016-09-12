@@ -3,6 +3,7 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 ; revisions:
+;	2016-05-20 v 1.22
 ;	2016-05-16 v 1.21
 ;	2016-02-23 v 1.20
 ;	2016-01-15 v 1.19
@@ -37,7 +38,10 @@ z_reverseflag = $C7	; character routine
 z_lastkey = $D7		; original use case, unused here
 z_tmp = z_lastkey	; temporary reused for character routine
 
-v_bascmd = $0308
+v_baserr = $0300	; vector error routine
+v_basstp = $0328	; vector error routine
+v_bascmd = $0308	; vector interpreter parsing
+v_basexp = $030a	; vector evaluate expression
 
 basic_rom = $A000	; start of BASIC ROM
 
@@ -45,6 +49,7 @@ b_interpreter =$A7AE	; interpreter loop
 b_execstatement =$A7E7	; process statement
 b_getcomma = $AEFD	; read comma from basic text
 b_illquant = $B248	; error "illegal quantity"
+b_syntaxerror = $AF08	; error "syntax"
 b_get8bit = $B79E	; read 8 bit numeric value from
 			; basic text
 b_getcomma8bit = $B7F1	; read comma and 8 bit numeric value
@@ -110,6 +115,19 @@ gpos	= $FB		; in graphic position
 
 gcol	= $FD		; graphic color, in "graphic on" context only
 
+
+; static ram areas
+
+savexl	= $0334		; the graphic cursor: x low 
+savexh	= savexl+1	; the graphic cursor: x high
+savey	= savexh+1	; the graphic cursor: y
+savemo	= savey+1	; the graphic mode
+saveverr = savemo+1	; original v_baserr
+savevstp = saveverr+2	; original v_basstp
+
+gramcode = $03ed	; real place for gchange and gmask routines,
+			; they take 15 bytes
+
 ;
 ; initialize extension
 
@@ -118,8 +136,46 @@ init
         STA v_bascmd
         LDA #>(parse)
         STA v_bascmd+1
+
+        LDA v_basstp
+	STA savevstp
+        LDA #<(stop)	; basic interpreter stop hook
+        STA v_basstp
+        LDA v_basstp+1
+	STA savevstp+1
+        LDA #>(stop)
+        STA v_basstp+1
+
+        LDA v_baserr
+	STA saveverr
+        LDA #<(error)	; basic interpreter error hook
+        STA v_baserr
+        LDA v_baserr+1
+	STA saveverr+1
+        LDA #>(error)
+        STA v_baserr+1
+
+	LDX #0		; set graphic cursor to (0,0)
+	STX savexl
+	STX savexh
+	STX savey
+	INX
+	STX savemo	; set mode 1
         RTS
 
+error	
+	; reg A may destroyed
+	JSR gra_off		; uses only reg A
+	JMP (saveverr)		; to original vector
+
+stop	
+	; reg A may destroyed
+	LDA $91			; Scan code
+	CMP #$7F		; STOP key?
+	BNE nostop
+	JSR gra_off		; uses only reg A
+nostop
+	JMP (savevstp)		; to original vector
 
 ;-----------------------------------------------------------------
 
@@ -140,7 +196,7 @@ newcmd
 					; command address ...
 checknextcmd
         DEY
-	BEQ parse_exit
+	BEQ parse_error
         CMP cmds,Y
         BNE checknextcmd		; try next
         DEY				; found
@@ -155,6 +211,7 @@ checknextcmd
         STA ijmp
         JSR chrget			; read next byte in basic text
         JSR ijmp-1                      ; go to command by JMP (addr)
+        JMP b_interpreter		; continue parsing
 } else {
 	!set co=1			; command offset in jump table
 	LDA #>(b_interpreter-1)		; return to interpreter
@@ -168,8 +225,8 @@ checknextcmd
         JMP chrget			; read next byte in basic text 
 					; and RTS to command
 }
-parse_exit
-        JMP b_interpreter		; continue parsing
+parse_error
+        JMP b_syntaxerror		; throw error (unknown command)
 
 ;-----------------------------------------------------------------
 
@@ -182,7 +239,7 @@ cmdaddr
         !word graphic-co,char-co,setmode-co,move-co,relto-co
         !word to-co,vline-co,hline-co,line-co,plot-co
 
-author	!text 147,"GRA-EXT V1.21 1986,2016 JOHANN@KLASEK.AT",0
+author	!text 147,"GRA-EXT V1.22 1986,2016 JOHANN@KLASEK.AT",0
 
 bitmask
 	!byte $80, $40, $20, $10, $08, $04, $02, $01
@@ -199,10 +256,6 @@ ytabh
 	!byte gramp+$19,gramp+$1a,gramp+$1b,gramp+$1c
 	!byte gramp+$1e
 
-savexl	!byte $3a
-savexh	!byte $01
-savey	!byte $71
-
 ; for horiz. line
 
 maskleft !byte $ff,$7f,$3f,$1f,$0f,$07,$03,$01
@@ -215,8 +268,9 @@ maskright !byte $80,$c0,$e0,$f0,$f8,$fc,$fe,$ff
 graphic
         JSR b_get8bit
         CPX #$00
-        BNE graphic_on
+        BNE gra_other
 gra0			; &G 0
+gra_off
         LDA #$C7	; Bit 1,0: %11, 3: Bank 0: $0000-$3FFF, 0-16383 (Standard)
         STA cia_pra
         LDA #((1 <<4) + (2 <<1) + 1)
@@ -227,29 +281,21 @@ gra0			; &G 0
         AND #%11011111	; Hires mode off
         STA vic_cr
         RTS
-graphic_on
+
+gra_other
         CPX #$01
-        BNE gra2
+	BEQ gra1
+	CPX #$02
+        BEQ gra2
+	CPX #$04
+        BEQ gra_clear	; &G 4 (erase only, leave mode)
+	CPX #$03	; &G 3 (graphic on)
+	BEQ gra_on
+        JMP b_illquant	; parameter illegal
+	
 gra1			; &G 1
-        LDY #$00
-        LDX #$20	; Pages (8 KByte)
-        LDA #>gram
-        STA gpos+1
-        STY gpos
-        LDA #$00
-gra_clear
-        STA (gpos),Y	; Loop unroll
-        INY
-        STA (gpos),Y
-        INY
-        STA (gpos),Y
-        INY
-        STA (gpos),Y
-        INY
-        BNE gra_clear
-        INC gpos+1
-        DEX
-        BNE gra_clear
+	JSR gra_clear
+
 gra2
         JSR b_getcomma8bit
         TXA		; foreground color
@@ -264,12 +310,16 @@ gra2
         ORA gcol
         LDY #$00
 cram_loop
-        STA cram,Y
+        STA cram,Y	; fill color RAM
         STA cram+$100,Y
         STA cram+$200,Y
         STA cram+$300-24,Y
         INY
         BNE cram_loop
+
+gra_on
+	JSR gra_setupcode
+
         LDA #$C4	; Bit 1,0: %00, 0: Bank 3: $C000-$FFFF, 49152-65535
         STA cia_pra
         LDA #((3 << 4) + %1000)	; cram: VIC_bank+$400*3, Hires upper half
@@ -279,6 +329,40 @@ cram_loop
         STA vic_cr
         RTS
 
+gra_clear
+        LDX #$20	; Pages (8 KByte)
+        LDA #>gram
+        STA gpos+1
+        LDY #$00
+        STY gpos
+        TYA
+gra_fill
+        STA (gpos),Y	; Loop unroll
+        INY
+        STA (gpos),Y
+        INY
+        STA (gpos),Y
+        INY
+        STA (gpos),Y
+        INY
+        BNE gra_fill
+        INC gpos+1
+        DEX
+        BNE gra_fill
+	RTS
+
+gra_setupcode
+	LDX #(gromcode_end-gromcode) ; count of bytes
+gra_copycode
+	LDA gromcode-1,X
+	STA gramcode-1,X
+	DEX
+	BNE gra_copycode
+	LDA savemo
+	AND #$0F
+	TAX
+	JMP setmode_enter	; re-apply mode to routines
+				; implicit RTS
 
 ;-----------------------------------------------------------------
 
@@ -300,6 +384,16 @@ ginit
 
 ;-----------------------------------------------------------------
 
+; These are selfmodified routines, which has to placed into RAM
+; (on every graphic "on")
+; Code gromcode to gromcode_end-1 is relocated to gramcode
+
+gromcode
+
+!pseudopc gramcode {
+
+; change a graphic location
+
 gchange
         LDA (gaddr),Y
 gchange_op
@@ -307,7 +401,7 @@ gchange_op
         STA (gaddr),Y
         RTS
 
-;-----------------------------------------------------------------
+; mask a graphic location 
 
 gmask
 gmask_flip
@@ -316,6 +410,10 @@ gmask_op
         ORA (gaddr),Y
         STA (gaddr),Y
         RTS
+
+}
+
+gromcode_end
 
 ;-----------------------------------------------------------------
 
@@ -571,11 +669,7 @@ getxy
 	BCC gcxy_xok
         BEQ +		; X = $1xx
 error_iq
-!ifdef no_error {
-	RTS
-} else {
-        JMP b_illquant
-}
+        JSR range_error
 +	CPY #<xmax	; check X low
         BCS error_iq	; X to big
 gcxy_xok
@@ -728,11 +822,7 @@ vline
         CMP #ymax
         BCC +
 vline_iq
-!ifdef no_error {
-	RTS
-} else {
-        JMP b_illquant
-}
+        JSR range_error
 +	STA yend	; endpoint
 	CMP #ymax	; outside?
 	BCS vline_iq
@@ -945,12 +1035,47 @@ move
 
 ;-----------------------------------------------------------------
 
+range_error
+	LDA savemo
+	AND #$F0
+	BNE +
+	PLA			; cleanup JSR
+	PLA
+-	RTS			; error mode 0: do nothing, back to caller before
+				; error mode 2: cut value: control back
+				; to handle value correction
++	AND #$20
+	BNE -
+	PLA			; cleanup JSR
+	PLA
+setmode_error
+	JMP b_illquant		; error mode 1: throw error message
+
+;-----------------------------------------------------------------
+
 setmode
         JSR b_get8bit
-        CPX #$03
-        BCC +
-        JMP b_illquant
-+	CPX #$01
+        CPX #3
+        BCC +			; less then 3, modification mode
+	CPX #6
+	BCS setmode_error	; out of range
+				; error mode
+	ADC #13			; C=0, therefore -3
+				; 3-5 -> 16-18
+				; put A's bit 4-7 into savemo
+	EOR savemo		; ********
+	AND #$F0		; ****0000
+	EOR savemo		; AAAAmmmm
+	STA savemo		; 
+	RTS
+
++	TXA
+	EOR savemo		; put A's bit 0-3 into savemo
+	AND #$0F
+	EOR savemo
+	STA savemo
+setmode_enter
+	CPX #$01
         BCS set_or_toggle
 
 modereset
@@ -1056,11 +1181,7 @@ relto
         BCC rt_xok
         BEQ +
 relto_error
-!ifdef no_error {
-	RTS
-} else {
-        JMP b_illquant
-}
+        JSR range_error
 +	LDA xendl
         CMP #<xmax
         BCS relto_error
@@ -1219,5 +1340,5 @@ to
         JSR getxy
         JMP line_start
 
+;-----------------------------------------------------------------
 graext_end
-

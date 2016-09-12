@@ -19,7 +19,8 @@ all: $(F).o $(FRUN).prg
 
 $(F).o: $(F).asm $(F)-core.asm
 	acme -v3 -l $(F).l -r $(F).r $(F).asm 
-	
+	rm -f graext-c000 ; ln graext.o graext-c000
+
 
 $(FRUN).prg: $(FRUN).asm $(F)-core.asm
 	acme -v3 -l $(FRUN).l -r $(FRUN).r $(FRUN).asm 

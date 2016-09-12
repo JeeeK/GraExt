@@ -6,6 +6,14 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+	2016-05-20 v 1.22		&G Modi 3 (nur löschen) und 4 (nur aus)
+					&S neue Werte 3-5 für Fehlerbehandlung,
+					Fehlerbehandlung dynamisch (unvollständig)
+					ROM-fähig (gmask, gchange Routinen ins
+					RAM, $033C-Bereich)
+					Buggy:
+					&s3-5 funktioniert nicht.
+					Fehlerbehandlung unvollständig (für &s3-5)
 	2016-02-23 v 1.21		graext-core.asm als Basis für
 					graext (ge) und ge-run (als
 					RUN-Programm, verschiebt Basic-Start!)
@@ -26,20 +34,32 @@ Versionen:
 					in Verwendung (Maturazeitungsdiagramme)
 	1985       v 0.00 - 1.16
 
+
 ToDo:
 
  * &C Prozport nicht mit festen Wert überschreiben ($21), nur maskieren!
 
+
 Wunschliste:
 
- * Grafik einschalten ohne löschen.
- * Grafik löschen separat und besonders schnell!
+ * Unnew
+ * Block gefüllt (&H anpassen?)
+ * Fehlerbehandlung auswählbar.
+ * Grafikcursor auslesen.
  * GETXY-Funktion
  * Fill
+ * Grafik löschen separat und besonders schnell!
+ * Optimierungen: Line, zu niedrigen Koordinaten mit
+        Dekremetieren und Zero-Bedingung statt Inkremtieren
+        mit explizitem Vergleich.
  * Circle
  * Clipping: trotzdem Zeichnen, aber am Rand aufhören.
- * Fehlerbehandlung auswählbar.
+        Echtes Clipping oder nur Koordinaten abschneiden?
  * Multicolor?
+
+erledigt:
+ * Grafik einschalten ohne löschen. -> ab 1.22
+
 
 Geschichte:
 
