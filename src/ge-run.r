@@ -28,7 +28,7 @@
     26                          	!error "Loader-Adresse stimmt nicht mit SYS-Adresse überein!"
     27                          }
     28                          
-    29  080d a26d               	ldx #<graext_end	; setup basic
+    29  080d a2eb               	ldx #<graext_end	; setup basic
     30  080f a00f               	ldy #>graext_end
     31  0811 18                 	clc			; set if C=0
     32  0812 209cff             	jsr $ff9c		; KERNAL: system RAM bottom
@@ -47,1379 +47,1501 @@
      2                          ;
      3                          ; 2015-10-05 johann e. klasek, johann at klasek at
      4                          ;
-     5                          ; revisions:
-     6                          ;	2016-06-16 v 1.24
-     7                          ;	2016-05-29 v 1.23
-     8                          ;	2016-05-20 v 1.22
-     9                          ;	2016-05-16 v 1.21
-    10                          ;	2016-02-23 v 1.20
-    11                          ;	2016-01-15 v 1.19
-    12                          ;	1992-12-28 v 1.18
-    13                          ;	1986-03-24 v 1.17
-    14                          ;	1985       v 0.00 - 1.16
-    15                          ;
-    16                          ; the original source has been lost.
-    17                          ; development has based on the implemention
-    18                          ; done on a forth-64 written with its forth assembler.
-    19                          ; the code has been pulled out from there and enriched
-    20                          ; with some glue code to get a basic extension.
-    21                          
-    22                          ; command dispatcher style JMP/RTS
-    23                          ;	(if defined)
-    24                          ;command_rts_style=1
+     5                          !macro version {
+     6                          	!text "1.25" ; current version
+     7                          }
+     8                          ; revisions:
+     9                          ;	2016-06-21 v 1.25
+    10                          ;	2016-06-16 v 1.24
+    11                          ;	2016-05-29 v 1.23
+    12                          ;	2016-05-20 v 1.22
+    13                          ;	2016-05-16 v 1.21
+    14                          ;	2016-02-23 v 1.20
+    15                          ;	2016-01-15 v 1.19
+    16                          ;	1992-12-28 v 1.18
+    17                          ;	1986-03-24 v 1.17
+    18                          ;	1985       v 0.00 - 1.16
+    19                          ;
+    20                          ; the original source has been lost.
+    21                          ; development has based on the implemention
+    22                          ; done on a forth-64 written with its forth assembler.
+    23                          ; the code has been pulled out from there and enriched
+    24                          ; with some glue code to get a basic extension.
     25                          
-    26                          ; error handling 
+    26                          ; command dispatcher style JMP/RTS
     27                          ;	(if defined)
-    28                          ;no_error=1
+    28                          ;command_rts_style=1
     29                          
-    30                          ; basic interpreter registers, addresses and entry points
-    31                          
-    32                          str     = $22		; string address
-    33                          bassta	= $2b		; basic start pointer
-    34                          basend	= $2d		; basic end pointer
-    35                          ijmp    = $55		; address of JMP (addr)
-    36                          chrget  = $73		; basic charget routine
-    37                          facintl = $65		; integer result from b_fac2int
-    38                          facinth = $64
-    39                          facexp  = $61		; fac exponent, after b_getval
-    40                          
-    41                          z_reverseflag = $C7	; character routine
-    42                          z_lastkey = $D7		; original use case, unused here
-    43                          z_tmp = z_lastkey	; temporary reused for character routine
+    30                          ; error handling 
+    31                          ;	(if defined)
+    32                          ;no_error=1
+    33                          
+    34                          ; basic interpreter registers, addresses and entry points
+    35                          
+    36                          str     = $22		; string address
+    37                          bassta	= $2b		; basic start pointer
+    38                          basend	= $2d		; basic end pointer
+    39                          ijmp    = $55		; address of JMP (addr)
+    40                          chrget  = $73		; basic charget routine
+    41                          facintl = $65		; integer result from b_fac2int
+    42                          facinth = $64
+    43                          facexp  = $61		; fac exponent, after b_getval
     44                          
-    45                          v_baserr = $0300	; vector error routine
-    46                          v_basstp = $0328	; vector error routine
-    47                          v_bascmd = $0308	; vector interpreter parsing
-    48                          v_basexp = $030a	; vector evaluate expression
-    49                          
-    50                          basic_rom = $A000	; start of BASIC ROM
-    51                          
-    52                          b_clr = $A660		; CLR command
-    53                          b_interpreter = $A7AE	; interpreter loop
-    54                          b_execstatement = $A7E7	; process statement
-    55                          b_getcomma = $AEFD	; read comma from basic text
-    56                          b_illquant = $B248	; error "illegal quantity"
-    57                          b_syntaxerror = $AF08	; error "syntax"
-    58                          b_get8bit = $B79E	; read 8 bit numeric value from
-    59                          			; basic text
-    60                          b_getcomma8bit = $B7F1	; read comma and 8 bit numeric value
-    61                          			; from basic text
-    62                          b_getval = $AD8A	; read numeric value from basic text
-    63                          b_getexpr = $AD9E	; read expression from basic text
-    64                          b_byte2fac =$B3A2	; convert Y to FAC (unsigned 8 bit)
-    65                          b_convint = $B7F7	; convert FAC to unsigned integer, return Y/A and $14/$15
-    66                          b_fac2int = $BC9B	; convert FAC to integer
-    67                          b_stringval = $B6A3	; take epression as string $22/$23 (str)
-    68                          b_rechain = $A533	; rechain basic lines
-    69                          
-    70                          ; hardware registers and values
-    71                          
-    72                          prozport = $01		; processor port
-    73                          memrom = %00110111	; basic+kernal rom
-    74                          membas = %00110110	; basic ram+kernal rom
-    75                          memram = %00110101	; basic+kernal ram
-    76                          
-    77                          vic_cr	= $D011		; VIC control register
-    78                          vic_mcr	= $D018		; VIC memory control register
-    79                          cia_pra	= $DD00		; CIA 2 port register A
+    45                          z_reverseflag = $C7	; character routine
+    46                          z_lastkey = $D7		; original use case, unused here
+    47                          z_tmp = z_lastkey	; temporary reused for character routine
+    48                          
+    49                          v_baserr = $0300	; vector error routine
+    50                          v_basstp = $0328	; vector error routine
+    51                          v_bascmd = $0308	; vector interpreter parsing
+    52                          v_basexp = $030a	; vector evaluate expression
+    53                          
+    54                          basic_rom = $A000	; start of BASIC ROM
+    55                          
+    56                          b_clr = $A660		; CLR command
+    57                          b_interpreter = $A7AE	; interpreter loop
+    58                          b_execstatement = $A7E7	; process statement
+    59                          b_getcomma = $AEFD	; read comma from basic text
+    60                          b_illquant = $B248	; error "illegal quantity"
+    61                          b_syntaxerror = $AF08	; error "syntax"
+    62                          b_get8bit = $B79E	; read 8 bit numeric value from
+    63                          			; basic text
+    64                          b_getcomma8bit = $B7F1	; read comma and 8 bit numeric value
+    65                          			; from basic text
+    66                          b_getval = $AD8A	; read numeric value from basic text
+    67                          b_getexpr = $AD9E	; read expression from basic text
+    68                          b_byte2fac =$B3A2	; convert Y to FAC (unsigned 8 bit)
+    69                          b_convint = $B7F7	; convert FAC to unsigned integer, return Y/A and $14/$15
+    70                          b_fac2int = $BC9B	; convert FAC to integer
+    71                          b_stringval = $B6A3	; take epression as string $22/$23 (str)
+    72                          b_rechain = $A533	; rechain basic lines
+    73                          
+    74                          ; hardware registers and values
+    75                          
+    76                          prozport = $01		; processor port
+    77                          memrom = %00110111	; basic+kernal rom
+    78                          membas = %00110110	; basic ram+kernal rom
+    79                          memram = %00110101	; basic+kernal ram
     80                          
-    81                          cram	= $CC00		; start of color ram
-    82                          
-    83                          gram	= $e000		; start of graphic bitmap ram
-    84                          gramp	= gram >> 8	; start page of bitmap
-    85                          
-    86                          ; constants 
-    87                          
-    88                          xmax	= 320		; max x dimension
-    89                          ymax	= 200		; max y dimension
-    90                          
-    91                          ; zeropage variables
-    92                          
-    93                          x	= $9B		; start coordinate x, low+high
-    94                          xl	= x
-    95                          xh	= x+1
-    96                          y	= $AA		; start coordinate y
-    97                          
-    98                          xendl	= $9E		; end coordinate x, low+high
-    99                          xendh	= $9F
-   100                          yend	= $93		; end coordinate y
+    81                          vic_cr	= $D011		; VIC control register
+    82                          vic_mcr	= $D018		; VIC memory control register
+    83                          cia_pra	= $DD00		; CIA 2 port register A
+    84                          
+    85                          cram	= $CC00		; start of color ram
+    86                          
+    87                          gram	= $e000		; start of graphic bitmap ram
+    88                          gramp	= gram >> 8	; start page of bitmap
+    89                          
+    90                          ; constants 
+    91                          
+    92                          xmax	= 320		; max x dimension
+    93                          ymax	= 200		; max y dimension
+    94                          
+    95                          ; zeropage variables
+    96                          
+    97                          x	= $9B		; start coordinate x, low+high
+    98                          xl	= x
+    99                          xh	= x+1
+   100                          y	= $AA		; start coordinate y
    101                          
-   102                          kl	= $95		; gradient for lines, low+high
-   103                          kh	= kl+1
-   104                          
-   105                          tmp1	= $95		; =kl, temp. var. in context horiz. lines
-   106                          tmp2	= $96		; =kh, temp. var. in context horiz. lines
-   107                          
-   108                          dxl	= $AB		; x delta, low+high
-   109                          dxh	= $A7
-   110                          
-   111                          dy	= $A9		; y delta
-   112                          
-   113                          ydir	= $A8		; y direction: 0 | !=0 ... down | up
+   102                          xendl	= $9E		; end coordinate x, low+high
+   103                          xendh	= $9F
+   104                          yend	= $93		; end coordinate y
+   105                          
+   106                          kl	= $95		; gradient for lines, low+high
+   107                          kh	= kl+1
+   108                          
+   109                          tmp1	= $95		; =kl, temp. var. in context horiz. lines
+   110                          tmp2	= $96		; =kh, temp. var. in context horiz. lines
+   111                          
+   112                          dxl	= $AB		; x delta, low+high
+   113                          dxh	= $A7
    114                          
-   115                          cl	= $A3		; dot count, low+high
-   116                          ch	= $A4
+   115                          dy	= $A9		; y delta
+   116                          ysave	= dy		; y saved (hline context)
    117                          
-   118                          gaddr	= $A5		; graphic address
-   119                          
-   120                          gpos	= $FB		; in graphic position
-   121                          
-   122                          gcol	= $FD		; graphic color, in "graphic on" context only
-   123                          
-   124                          
-   125                          ; static ram areas
-   126                          
-   127                          savexl	= $0334		; the graphic cursor: x low 
-   128                          savexh	= savexl+1	; the graphic cursor: x high
-   129                          savey	= savexh+1	; the graphic cursor: y
-   130                          savemo	= savey+1	; the graphic mode
-   131                          saveverr = savemo+1	; original v_baserr
-   132                          savevstp = saveverr+2	; original v_basstp
+   118                          ydir	= $A8		; y direction: 0 | !=0 ... down | up
+   119                          ylimit	= ydir		; y limit in a 8x8 block (hline context)
+   120                          
+   121                          cl	= $A3		; dot count, low+high
+   122                          ch	= $A4
+   123                          ycount	= cl		; y count overall (hline context)
+   124                          hcount	= ch		; horizontal blocks (hline context)
+   125                          
+   126                          gaddr	= $A5		; graphic address
+   127                          
+   128                          gpos	= $FB		; in graphic position
+   129                          sgaddr	= gpos		; saved gaddr, hline context
+   130                          
+   131                          gcol	= $FD		; graphic color, in "graphic on" context only
+   132                          xsave	= gcol		; X register save (hline context)
    133                          
-   134                          gramcode = $03ed	; real place for gchange and gmask routines,
-   135                          			; they take 15 bytes
+   134                          
+   135                          ; static ram areas
    136                          
-   137                          ;
-   138                          ; initialize extension
-   139                          
-   140                          init
-   141  0829 a981                       LDA #<(parse)	; basic interpreter parser hook
-   142  082b 8d0803                     STA v_bascmd
-   143  082e a908                       LDA #>(parse)
-   144  0830 8d0903                     STA v_bascmd+1
-   145                          
-   146  0833 ad2803                     LDA v_basstp
-   147  0836 8d3a03             	STA savevstp
-   148  0839 a975                       LDA #<(stop)	; basic interpreter stop hook
-   149  083b 8d2803                     STA v_basstp
-   150  083e ad2903                     LDA v_basstp+1
-   151  0841 8d3b03             	STA savevstp+1
-   152  0844 a908                       LDA #>(stop)
-   153  0846 8d2903                     STA v_basstp+1
+   137                          savexl	= $0334		; the graphic cursor: x low 
+   138                          savexh	= savexl+1	; the graphic cursor: x high
+   139                          savey	= savexh+1	; the graphic cursor: y
+   140                          savemo	= savey+1	; the graphic mode
+   141                          saveverr = savemo+1	; original v_baserr
+   142                          savevstp = saveverr+2	; original v_basstp
+   143                          
+   144                          			; real place for gchange and gmask routines,
+   145                          !ifdef ltc {
+   146                          gramcode = $03ed - 26	; 15 bytes + 4*6+2
+   147                          } else {
+   148                          gramcode = $03ed	; 15 bytes
+   149                          }
+   150                          
+   151                          ; LTC64 specifics
+   152                          
+   153                          !ifdef ltc {
    154                          
-   155  0849 ad0003                     LDA v_baserr
-   156  084c 8d3803             	STA saveverr
-   157  084f a96f                       LDA #<(error)	; basic interpreter error hook
-   158  0851 8d0003                     STA v_baserr
-   159  0854 ad0103                     LDA v_baserr+1
-   160  0857 8d3903             	STA saveverr+1
-   161  085a a908                       LDA #>(error)
-   162  085c 8d0103                     STA v_baserr+1
-   163                          
-   164  085f a200               	LDX #0		; set graphic cursor to (0,0)
-   165  0861 8e3403             	STX savexl
-   166  0864 8e3503             	STX savexh
-   167  0867 8e3603             	STX savey
-   168  086a e8                 	INX
-   169  086b 8e3703             	STX savemo	; set mode 1
-   170  086e 60                         RTS
+   155                          !cpu 65816
+   156                          
+   157                          bank4+3 = $040000
+   158                          rombank+3 = $010000     ; c't
+   159                          
+   160                          ; c't-Karte-Kontrollregister
+   161                          
+   162                          memconf = bank4 or 1
+   163                          mc_off  = $80                   ; CPU 816 ausschalten
+   164                          mc_slow = $40                   ; CPU 1 MHz
+   165                          mc_epr  = $20                   ; EPROM in Bank0
+   166                          mc_sim  = $10                   ; ROM-Simulation Bit
+   167                          
+   168                          }
+   169                          
+   170                          
    171                          
-   172                          error	
-   173                          	; reg A may destroyed
-   174  086f 204509             	JSR gra_off		; uses only reg A
-   175  0872 6c3803             	JMP (saveverr)		; to original vector
-   176                          
-   177                          stop	
-   178                          	; reg A may destroyed
-   179  0875 a591               	LDA $91			; Scan code
-   180  0877 c97f               	CMP #$7F		; STOP key?
-   181  0879 d003               	BNE nostop
-   182  087b 204509             	JSR gra_off		; uses only reg A
-   183                          nostop
-   184  087e 6c3a03             	JMP (savevstp)		; to original vector
-   185                          
-   186                          ;-----------------------------------------------------------------
-   187                          
-   188                          ; start parsing an extension command ...
+   172                          ;
+   173                          ; initialize extension
+   174                          
+   175                          init
+   176  0829 a981                       LDA #<(parse)	; basic interpreter parser hook
+   177  082b 8d0803                     STA v_bascmd
+   178  082e a908                       LDA #>(parse)
+   179  0830 8d0903                     STA v_bascmd+1
+   180                          
+   181  0833 ad2803                     LDA v_basstp
+   182  0836 8d3a03             	STA savevstp
+   183  0839 a975                       LDA #<(stop)	; basic interpreter stop hook
+   184  083b 8d2803                     STA v_basstp
+   185  083e ad2903                     LDA v_basstp+1
+   186  0841 8d3b03             	STA savevstp+1
+   187  0844 a908                       LDA #>(stop)
+   188  0846 8d2903                     STA v_basstp+1
    189                          
-   190                          parse
-   191  0881 207300                     JSR chrget			; next char.
-   192  0884 08                 	PHP
-   193  0885 c926                       CMP #'&'			; command prefix
-   194  0887 f004                       BEQ newcmd
-   195  0889 28                         PLP
-   196  088a 4ce7a7                     JMP b_execstatement
-   197                          newcmd
-   198  088d 28                 	PLP
-   199  088e 207300                     JSR chrget			; command character
-   200                          
-   201  0891 a00c                       LDY #(cmdsend-cmds)		; map character to
-   202                          					; command address ...
-   203                          checknextcmd
-   204  0893 88                         DEY
-   205  0894 f01c               	BEQ parse_error
-   206  0896 d9b508                     CMP cmds,Y
-   207  0899 d0f8                       BNE checknextcmd		; try next
-   208  089b 88                         DEY				; found
-   209  089c 98                         TYA
-   210  089d 0a                         ASL				; *2
-   211  089e a8                         TAY
-   212                          !ifndef command_rts_tyle {
-   213                          	!set co=0			; command offset in jump table
-   214  089f b9c208                     LDA cmdaddr+1,Y                 ; high byte from table
-   215  08a2 8556                       STA ijmp+1
-   216  08a4 b9c108                     LDA cmdaddr,Y                   ; low byte from table
-   217  08a7 8555                       STA ijmp
-   218  08a9 207300                     JSR chrget			; read next byte in basic text
-   219  08ac 205400                     JSR ijmp-1                      ; go to command by JMP (addr)
-   220  08af 4caea7                     JMP b_interpreter		; continue parsing
-   221                          } else {
-   222                          	!set co=1			; command offset in jump table
-   223                          	LDA #>(b_interpreter-1)		; return to interpreter
-   224                          	PHA
-   225                          	LDA #<(b_interpreter-1)
-   226                          	PHA				
-   227                                  LDA cmdaddr+1,Y			; command address (RTS style)
-   228                                  PHA				; high byte on stack
-   229                                  LDA cmdaddr,Y			; command address (RTS style)
-   230                                  PHA				; low byte on stack
-   231                                  JMP chrget			; read next byte in basic text 
-   232                          					; and RTS to command
-   233                          }
-   234                          parse_error
-   235  08b2 4c08af                     JMP b_syntaxerror		; throw error (unknown command)
-   236                          
-   237                          ;-----------------------------------------------------------------
-   238                          
-   239                          ; the most commonly used command placed at the end ...
-   240                          
-   241  08b5 20554743534d5254...cmds	!text " UGCSMRTVHLP"		; first char. is a dummy
-   242                          cmdsend
-   243                          
-   244                          cmdaddr
-   245  08c1 4c0f3e09830e860d...        !word unnew-co,graphic-co,char-co,setmode-co,move-co,relto-co
-   246  08cd 370f230c720b8e0c...        !word to-co,vline-co,hline-co,line-co,plot-co
-   247                          
-   248  08d7 934752412d455854...author	!text 147,"GRA-EXT V1.24 1986,2016 JOHANN@KLASEK.AT",0
-   249                          
-   250                          bitmask
-   251  0901 8040201008040201   	!byte $80, $40, $20, $10, $08, $04, $02, $01
-   252                          nbitmask
-   253  0909 7fbfdfeff7fbfdfe   	!byte $7f, $bf, $df, $ef, $f7, $fb, $fd, $fe
-   254                          ytabl
-   255  0911 004080c0           	!byte $00,$40,$80,$c0
-   256                          ytabh
-   257  0915 e0e1e2e3           	!byte gramp+$00,gramp+$01,gramp+$02,gramp+$03
-   258  0919 e5e6e7e8           	!byte gramp+$05,gramp+$06,gramp+$07,gramp+$08
-   259  091d eaebeced           	!byte gramp+$0a,gramp+$0b,gramp+$0c,gramp+$0d
-   260  0921 eff0f1f2           	!byte gramp+$0f,gramp+$10,gramp+$11,gramp+$12
-   261  0925 f4f5f6f7           	!byte gramp+$14,gramp+$15,gramp+$16,gramp+$17
-   262  0929 f9fafbfc           	!byte gramp+$19,gramp+$1a,gramp+$1b,gramp+$1c
-   263  092d fe                 	!byte gramp+$1e
-   264                          
-   265                          ; for horiz. line
-   266                          
-   267  092e ff7f3f1f0f070301   maskleft !byte $ff,$7f,$3f,$1f,$0f,$07,$03,$01
-   268                          
-   269  0936 80c0e0f0f8fcfeff   maskright !byte $80,$c0,$e0,$f0,$f8,$fc,$fe,$ff
-   270                          
+   190  0849 ad0003                     LDA v_baserr
+   191  084c 8d3803             	STA saveverr
+   192  084f a96f                       LDA #<(error)	; basic interpreter error hook
+   193  0851 8d0003                     STA v_baserr
+   194  0854 ad0103                     LDA v_baserr+1
+   195  0857 8d3903             	STA saveverr+1
+   196  085a a908                       LDA #>(error)
+   197  085c 8d0103                     STA v_baserr+1
+   198                          
+   199  085f a200               	LDX #0		; set graphic cursor to (0,0)
+   200  0861 8e3403             	STX savexl
+   201  0864 8e3503             	STX savexh
+   202  0867 8e3603             	STX savey
+   203  086a e8                 	INX
+   204  086b 8e3703             	STX savemo	; set mode 1
+   205  086e 60                         RTS
+   206                          
+   207                          error	
+   208                          	; reg A may destroyed
+   209  086f 204509             	JSR gra_off		; uses only reg A
+   210  0872 6c3803             	JMP (saveverr)		; to original vector
+   211                          
+   212                          stop	
+   213                          	; reg A may destroyed
+   214  0875 a591               	LDA $91			; Scan code
+   215  0877 c97f               	CMP #$7F		; STOP key?
+   216  0879 d003               	BNE nostop
+   217  087b 204509             	JSR gra_off		; uses only reg A
+   218                          nostop
+   219  087e 6c3a03             	JMP (savevstp)		; to original vector
+   220                          
+   221                          ;-----------------------------------------------------------------
+   222                          
+   223                          ; start parsing an extension command ...
+   224                          
+   225                          parse
+   226  0881 207300                     JSR chrget			; next char.
+   227  0884 08                 	PHP
+   228  0885 c926                       CMP #'&'			; command prefix
+   229  0887 f004                       BEQ newcmd
+   230  0889 28                         PLP
+   231  088a 4ce7a7                     JMP b_execstatement
+   232                          newcmd
+   233  088d 28                 	PLP
+   234  088e 207300                     JSR chrget			; command character
+   235                          
+   236  0891 a00c                       LDY #(cmdsend-cmds)		; map character to
+   237                          					; command address ...
+   238                          checknextcmd
+   239  0893 88                         DEY
+   240  0894 f01c               	BEQ parse_error
+   241  0896 d9b508                     CMP cmds,Y
+   242  0899 d0f8                       BNE checknextcmd		; try next
+   243  089b 88                         DEY				; found
+   244  089c 98                         TYA
+   245  089d 0a                         ASL				; *2
+   246  089e a8                         TAY
+   247                          !ifndef command_rts_tyle {
+   248                          	!set co=0			; command offset in jump table
+   249  089f b9c208                     LDA cmdaddr+1,Y                 ; high byte from table
+   250  08a2 8556                       STA ijmp+1
+   251  08a4 b9c108                     LDA cmdaddr,Y                   ; low byte from table
+   252  08a7 8555                       STA ijmp
+   253  08a9 207300                     JSR chrget			; read next byte in basic text
+   254  08ac 205400                     JSR ijmp-1                      ; go to command by JMP (addr)
+   255  08af 4caea7                     JMP b_interpreter		; continue parsing
+   256                          } else {
+   257                          	!set co=1			; command offset in jump table
+   258                          	LDA #>(b_interpreter-1)		; return to interpreter
+   259                          	PHA
+   260                          	LDA #<(b_interpreter-1)
+   261                          	PHA				
+   262                                  LDA cmdaddr+1,Y			; command address (RTS style)
+   263                                  PHA				; high byte on stack
+   264                                  LDA cmdaddr,Y			; command address (RTS style)
+   265                                  PHA				; low byte on stack
+   266                                  JMP chrget			; read next byte in basic text 
+   267                          					; and RTS to command
+   268                          }
+   269                          parse_error
+   270  08b2 4c08af                     JMP b_syntaxerror		; throw error (unknown command)
    271                          
    272                          ;-----------------------------------------------------------------
    273                          
-   274                          graphic
-   275  093e 209eb7                     JSR b_get8bit
-   276  0941 e000                       CPX #$00
-   277  0943 d013                       BNE gra_other
-   278                          gra0			; &G 0
-   279                          gra_off
-   280  0945 a9c7                       LDA #$C7	; Bit 1,0: %11, 3: Bank 0: $0000-$3FFF, 0-16383 (Standard)
-   281  0947 8d00dd                     STA cia_pra
-   282  094a a915                       LDA #((1 <<4) + (2 <<1) + 1)
-   283                          			; Screen addr=VIC_bank+$400*1, char addr= $800*2, 1
-   284                          			; char addr $1000/4096 = char. ROM
-   285  094c 8d18d0                     STA vic_mcr	; VIC memory control
-   286  094f ad11d0                     LDA vic_cr	; VIC control register
-   287  0952 29df                       AND #%11011111	; Hires mode off
-   288  0954 8d11d0                     STA vic_cr
-   289  0957 60                         RTS
-   290                          
-   291                          gra_other
-   292  0958 e001                       CPX #$01
-   293  095a f00f               	BEQ gra1
-   294  095c e002               	CPX #$02
-   295  095e f00e                       BEQ gra2
-   296  0960 e004               	CPX #$04
-   297  0962 f043                       BEQ gra_clear	; &G 4 (erase only, leave mode)
-   298  0964 e003               	CPX #$03	; &G 3 (graphic on)
-   299  0966 f029               	BEQ gra_on
-   300  0968 4c48b2                     JMP b_illquant	; parameter illegal
-   301                          	
-   302                          gra1			; &G 1
-   303  096b 20a709             	JSR gra_clear
-   304                          
-   305                          gra2
-   306  096e 20f1b7                     JSR b_getcomma8bit
-   307  0971 8a                         TXA		; foreground color
-   308  0972 0a                         ASL		; upper nibble
-   309  0973 0a                         ASL
-   310  0974 0a                         ASL
-   311  0975 0a                         ASL
-   312  0976 85fd                       STA gcol
-   313  0978 20f1b7                     JSR b_getcomma8bit
-   314  097b 8a                         TXA		; background color
-   315  097c 290f                       AND #$0F
-   316  097e 05fd                       ORA gcol
-   317  0980 a000                       LDY #$00
-   318                          cram_loop
-   319  0982 9900cc                     STA cram,Y	; fill color RAM
-   320  0985 9900cd                     STA cram+$100,Y
-   321  0988 9900ce                     STA cram+$200,Y
-   322  098b 99e8ce                     STA cram+$300-24,Y
-   323  098e c8                         INY
-   324  098f d0f1                       BNE cram_loop
-   325                          
-   326                          gra_on
-   327  0991 20c609             	JSR gra_setupcode
-   328                          
-   329  0994 a9c4                       LDA #$C4	; Bit 1,0: %00, 0: Bank 3: $C000-$FFFF, 49152-65535
-   330  0996 8d00dd                     STA cia_pra
-   331  0999 a938                       LDA #((3 << 4) + %1000)	; cram: VIC_bank+$400*3, Hires upper half
-   332  099b 8d18d0                     STA vic_mcr	; VIC memory control
-   333  099e ad11d0                     LDA vic_cr	; VIC control register
-   334  09a1 0920                       ORA #%00100000	; Bit 5 = 1: Hires on
-   335  09a3 8d11d0                     STA vic_cr
-   336  09a6 60                         RTS
-   337                          
-   338                          gra_clear
-   339  09a7 a220                       LDX #$20	; Pages (8 KByte)
-   340  09a9 a9e0                       LDA #>gram
-   341  09ab 85fc                       STA gpos+1
-   342  09ad a000                       LDY #$00
-   343  09af 84fb                       STY gpos
-   344  09b1 98                         TYA
-   345                          gra_fill
-   346  09b2 91fb                       STA (gpos),Y	; Loop unroll
-   347  09b4 c8                         INY
-   348  09b5 91fb                       STA (gpos),Y
-   349  09b7 c8                         INY
-   350  09b8 91fb                       STA (gpos),Y
-   351  09ba c8                         INY
-   352  09bb 91fb                       STA (gpos),Y
-   353  09bd c8                         INY
-   354  09be d0f2                       BNE gra_fill
-   355  09c0 e6fc                       INC gpos+1
-   356  09c2 ca                         DEX
-   357  09c3 d0ed                       BNE gra_fill
-   358  09c5 60                 	RTS
-   359                          
-   360                          gra_setupcode
-   361  09c6 a20f               	LDX #(gromcode_end-gromcode) ; count of bytes
-   362                          gra_copycode
-   363  09c8 bde909             	LDA gromcode-1,X
-   364  09cb 9dec03             	STA gramcode-1,X
-   365  09ce ca                 	DEX
-   366  09cf d0f7               	BNE gra_copycode
-   367  09d1 ad3703             	LDA savemo
-   368  09d4 290f               	AND #$0F
-   369  09d6 aa                 	TAX
-   370  09d7 4cab0d             	JMP setmode_enter	; re-apply mode to routines
-   371                          				; implicit RTS
-   372                          
-   373                          ;-----------------------------------------------------------------
+   274                          ; the most commonly used command placed at the end ...
+   275                          
+   276  08b5 20554743534d5254...cmds	!text " UGCSMRTVHLP"		; first char. is a dummy
+   277                          cmdsend
+   278                          
+   279                          cmdaddr
+   280  08c1 ca0f3e09010ffd0d...        !word unnew-co,graphic-co,char-co,setmode-co,move-co,relto-co
+   281  08cd b50f9b0c920b010d...        !word to-co,vline-co,hline-co,line-co,plot-co
+   282                          
+   283  08d7 934752412d455854...author	!text 147,"GRA-EXT V"
+   284  08e1 312e3235           	+version
+   285  08e5 20313938362c3230...	!text " 1986,2016 JOHANN@KLASEK.AT",0
+   286                          
+   287                          bitmask
+   288  0901 8040201008040201   	!byte $80, $40, $20, $10, $08, $04, $02, $01
+   289                          nbitmask
+   290  0909 7fbfdfeff7fbfdfe   	!byte $7f, $bf, $df, $ef, $f7, $fb, $fd, $fe
+   291                          ytabl
+   292  0911 004080c0           	!byte $00,$40,$80,$c0
+   293                          ytabh
+   294  0915 e0e1e2e3           	!byte gramp+$00,gramp+$01,gramp+$02,gramp+$03
+   295  0919 e5e6e7e8           	!byte gramp+$05,gramp+$06,gramp+$07,gramp+$08
+   296  091d eaebeced           	!byte gramp+$0a,gramp+$0b,gramp+$0c,gramp+$0d
+   297  0921 eff0f1f2           	!byte gramp+$0f,gramp+$10,gramp+$11,gramp+$12
+   298  0925 f4f5f6f7           	!byte gramp+$14,gramp+$15,gramp+$16,gramp+$17
+   299  0929 f9fafbfc           	!byte gramp+$19,gramp+$1a,gramp+$1b,gramp+$1c
+   300  092d fe                 	!byte gramp+$1e
+   301                          
+   302                          ; for horiz. line
+   303                          
+   304  092e ff7f3f1f0f070301   maskleft !byte $ff,$7f,$3f,$1f,$0f,$07,$03,$01
+   305                          
+   306  0936 80c0e0f0f8fcfeff   maskright !byte $80,$c0,$e0,$f0,$f8,$fc,$fe,$ff
+   307                          
+   308                          
+   309                          ;-----------------------------------------------------------------
+   310                          
+   311                          graphic
+   312  093e 209eb7                     JSR b_get8bit
+   313  0941 e000                       CPX #$00
+   314  0943 d013                       BNE gra_other
+   315                          gra0			; &G 0
+   316                          gra_off
+   317  0945 a9c7                       LDA #$C7	; Bit 1,0: %11, 3: Bank 0: $0000-$3FFF, 0-16383 (Standard)
+   318  0947 8d00dd                     STA cia_pra
+   319  094a a915                       LDA #((1 <<4) + (2 <<1) + 1)
+   320                          			; Screen addr=VIC_bank+$400*1, char addr= $800*2, 1
+   321                          			; char addr $1000/4096 = char. ROM
+   322  094c 8d18d0                     STA vic_mcr	; VIC memory control
+   323  094f ad11d0                     LDA vic_cr	; VIC control register
+   324  0952 29df                       AND #%11011111	; Hires mode off
+   325  0954 8d11d0                     STA vic_cr
+   326  0957 60                         RTS
+   327                          
+   328                          gra_other
+   329  0958 e001                       CPX #$01
+   330  095a f00f               	BEQ gra1
+   331  095c e002               	CPX #$02
+   332  095e f00e                       BEQ gra2
+   333  0960 e004               	CPX #$04
+   334  0962 f043                       BEQ gra_clear	; &G 4 (erase only, leave mode)
+   335  0964 e003               	CPX #$03	; &G 3 (graphic on)
+   336  0966 f029               	BEQ gra_on
+   337  0968 4c48b2                     JMP b_illquant	; parameter illegal
+   338                          	
+   339                          gra1			; &G 1
+   340  096b 20a709             	JSR gra_clear
+   341                          
+   342                          gra2
+   343  096e 20f1b7                     JSR b_getcomma8bit
+   344  0971 8a                         TXA		; foreground color
+   345  0972 0a                         ASL		; upper nibble
+   346  0973 0a                         ASL
+   347  0974 0a                         ASL
+   348  0975 0a                         ASL
+   349  0976 85fd                       STA gcol
+   350  0978 20f1b7                     JSR b_getcomma8bit
+   351  097b 8a                         TXA		; background color
+   352  097c 290f                       AND #$0F
+   353  097e 05fd                       ORA gcol
+   354  0980 a000                       LDY #$00
+   355                          cram_loop
+   356  0982 9900cc                     STA cram,Y	; fill color RAM
+   357  0985 9900cd                     STA cram+$100,Y
+   358  0988 9900ce                     STA cram+$200,Y
+   359  098b 99e8ce                     STA cram+$300-24,Y
+   360  098e c8                         INY
+   361  098f d0f1                       BNE cram_loop
+   362                          
+   363                          gra_on
+   364  0991 20c609             	JSR gra_setupcode
+   365                          
+   366  0994 a9c4                       LDA #$C4	; Bit 1,0: %00, 0: Bank 3: $C000-$FFFF, 49152-65535
+   367  0996 8d00dd                     STA cia_pra
+   368  0999 a938                       LDA #((3 << 4) + %1000)	; cram: VIC_bank+$400*3, Hires upper half
+   369  099b 8d18d0                     STA vic_mcr	; VIC memory control
+   370  099e ad11d0                     LDA vic_cr	; VIC control register
+   371  09a1 0920                       ORA #%00100000	; Bit 5 = 1: Hires on
+   372  09a3 8d11d0                     STA vic_cr
+   373  09a6 60                         RTS
    374                          
-   375                          gexit
-   376  09da a501                       LDA prozport
-   377  09dc 0902                       ORA #%00000010	; kernal ROM enable
-   378  09de 8501                       STA prozport
-   379  09e0 58                         CLI		; allow interrupts
-   380  09e1 60                         RTS
-   381                          
-   382                          ;-----------------------------------------------------------------
-   383                          
-   384                          ginit
-   385  09e2 a501                       LDA prozport
-   386  09e4 29fd                       AND #%11111101	; Kernal ROM disable
-   387  09e6 78                         SEI		; disable interrupts
-   388  09e7 8501                       STA prozport
-   389  09e9 60                         RTS
-   390                          
-   391                          ;-----------------------------------------------------------------
-   392                          
-   393                          ; These are selfmodified routines, which has to placed into RAM
-   394                          ; (on every graphic "on")
-   395                          ; Code gromcode to gromcode_end-1 is relocated to gramcode
+   375                          gra_clear
+   376  09a7 a220                       LDX #$20	; Pages (8 KByte)
+   377  09a9 a9e0                       LDA #>gram
+   378  09ab 85fc                       STA gpos+1
+   379  09ad a000                       LDY #$00
+   380  09af 84fb                       STY gpos
+   381  09b1 98                         TYA
+   382                          gra_fill
+   383  09b2 91fb                       STA (gpos),Y	; Loop unroll
+   384  09b4 c8                         INY
+   385  09b5 91fb                       STA (gpos),Y
+   386  09b7 c8                         INY
+   387  09b8 91fb                       STA (gpos),Y
+   388  09ba c8                         INY
+   389  09bb 91fb                       STA (gpos),Y
+   390  09bd c8                         INY
+   391  09be d0f2                       BNE gra_fill
+   392  09c0 e6fc                       INC gpos+1
+   393  09c2 ca                         DEX
+   394  09c3 d0ed                       BNE gra_fill
+   395  09c5 60                 	RTS
    396                          
-   397                          gromcode
-   398                          
-   399                          !pseudopc gramcode {
-   400                          
-   401                          ; change a graphic location
-   402                          
-   403                          gchange
-   404  09ea b1a5                       LDA (gaddr),Y
-   405                          gchange_op
-   406  09ec 1d0109                     ORA bitmask,X
-   407  09ef 91a5                       STA (gaddr),Y
-   408  09f1 60                         RTS
+   397                          gra_setupcode
+   398  09c6 a229               	LDX #(gromcode_end-gromcode) ; count of bytes
+   399                          gra_copycode
+   400  09c8 bde909             	LDA gromcode-1,X
+   401  09cb 9dec03             	STA gramcode-1,X
+   402  09ce ca                 	DEX
+   403  09cf d0f7               	BNE gra_copycode
+   404  09d1 ad3703             	LDA savemo
+   405  09d4 290f               	AND #$0F
+   406  09d6 aa                 	TAX
+   407  09d7 4c230e             	JMP setmode_enter	; re-apply mode to routines
+   408                          				; implicit RTS
    409                          
-   410                          ; mask a graphic location 
+   410                          ;-----------------------------------------------------------------
    411                          
-   412                          gmask
-   413                          gmask_flip
-   414  09f2 4900                       EOR #$00
-   415                          gmask_op
-   416  09f4 11a5                       ORA (gaddr),Y
-   417  09f6 91a5                       STA (gaddr),Y
-   418  09f8 60                         RTS
-   419                          
-   420                          }
-   421                          
-   422                          gromcode_end
-   423                          
-   424                          ;-----------------------------------------------------------------
-   425                          
-   426                          position
-   427  09f9 a5aa                       LDA y
-   428  09fb 4a                         LSR
-   429  09fc 4a                         LSR
-   430  09fd 4a                         LSR		; y/8
-   431  09fe a8                         TAY
-   432  09ff 2903                       AND #%00000011	; (y/8) mod 4
-   433  0a01 aa                         TAX
-   434  0a02 a59b                       LDA xl		; x low
-   435  0a04 29f8                       AND #%11111000	; clear bit 2-0
-   436  0a06 18                         CLC
-   437  0a07 7d1109                     ADC ytabl,X	; addr low: y base + x part
-   438  0a0a 85a5                       STA gaddr
-   439  0a0c a59c                       LDA xh		; addr high: x part
-   440  0a0e 791509                     ADC ytabh,Y	; 	+ y base
-   441  0a11 85a6                       STA gaddr+1
-   442  0a13 a5aa                       LDA y		; vertical offset
-   443  0a15 2907                       AND #%00000111	; y mod 8
-   444  0a17 a8                         TAY
-   445  0a18 a59b                       LDA xl
-   446  0a1a 2907                       AND #%00000111	; x mod 8
-   447  0a1c aa                         TAX		; horizonal offset
-   448  0a1d 60                         RTS		; (bitmask)
-   449                          
-   450                          
-   451                          ;-----------------------------------------------------------------
-   452                          
-   453                          ; line y up, x right, dx < dy (case 1)
-   454                          
-   455                          line_up_steep
-   456  0a1e 20f909                     JSR position	; x,y
-   457                          loop_yup_xright
-   458  0a21 20ed03                     JSR gchange	; pixel
+   412                          gexit
+   413  09da a501                       LDA prozport
+   414  09dc 0902                       ORA #%00000010	; kernal ROM enable
+   415  09de 8501                       STA prozport
+   416  09e0 58                         CLI		; allow interrupts
+   417  09e1 60                         RTS
+   418                          
+   419                          ;-----------------------------------------------------------------
+   420                          
+   421                          ginit
+   422  09e2 a501                       LDA prozport
+   423  09e4 29fd                       AND #%11111101	; Kernal ROM disable
+   424  09e6 78                         SEI		; disable interrupts
+   425  09e7 8501                       STA prozport
+   426  09e9 60                         RTS
+   427                          			; on exit Z=0
+   428                          
+   429                          ;-----------------------------------------------------------------
+   430                          
+   431                          ; These are selfmodified routines, which has to placed into RAM
+   432                          ; (on every graphic "on")
+   433                          ; Code gromcode to gromcode_end-1 is relocated to gramcode
+   434                          
+   435                          gromcode
+   436                          
+   437                          !pseudopc gramcode {
+   438                          
+   439                          ; change a graphic location
+   440                          
+   441                          gchange
+   442                          !ifdef ltc {
+   443                          	LDA #mc_epr		; Basic/Kernal-ROM-Simulation
+   444                          	STA memconf		; damit internes RAM gelesen werden kann!
+   445                          } else {
+   446  09ea eaeaeaeaeaea       	!fill 6, $ea
+   447                          }
+   448  09f0 b1a5                       LDA (gaddr),Y
+   449                          gchange_op
+   450  09f2 1d0109                     ORA bitmask,X
+   451  09f5 91a5                       STA (gaddr),Y
+   452                          !ifdef ltc {
+   453                          	LDA #mc_sim		; vollständige ROM-Simulation
+   454                          	STA memconf		; wieder schnelles RAM ab $C000
+   455                          } else {
+   456  09f7 eaeaeaeaeaea       	!fill 6, $ea
+   457                          }
+   458  09fd 60                         RTS
    459                          
-   460  0a24 18                         CLC		; k += dx
-   461  0a25 a595                       LDA kl
-   462  0a27 65ab                       ADC dxl		; dxh is 0, because dx < dy
-   463  0a29 8595                       STA kl
-   464  0a2b b004                       BCS ++		; k > 255
-   465                          
-   466  0a2d c5a9                       CMP dy
-   467  0a2f 9015                       BCC +		; k >= dy ->
-   468                          
-   469  0a31 e5a9               ++	SBC dy		; k -= dy
-   470  0a33 8595                       STA kl
-   471                          
-   472  0a35 e8                         INX		; x++
-   473  0a36 e008                       CPX #8
-   474  0a38 d00c                       BNE +
-   475                          	; C=1
-   476  0a3a a200                       LDX #0		; x overflow, wrap around
-   477  0a3c a5a5                       LDA gaddr	; x+8: gaddr += 8
-   478  0a3e 6907                       ADC #8-1	; C already set by CPX
-   479  0a40 85a5                       STA gaddr
-   480  0a42 9002                       BCC +
-   481  0a44 e6a6                       INC gaddr+1
-   482                          
-   483  0a46 88                 +	DEY		; y--
-   484  0a47 100f                       BPL +++
-   485  0a49 38                         SEC		; y overflow
-   486  0a4a a5a5                       LDA gaddr
-   487  0a4c e940                       SBC #$40	; y-8: gaddr -= 40*8 ($140)
-   488  0a4e 85a5                       STA gaddr
-   489  0a50 a5a6                       LDA gaddr+1
-   490  0a52 e901               	SBC #1
-   491  0a54 85a6                       STA gaddr+1
-   492  0a56 a007                       LDY #7		; wrap around
-   493                          
-   494  0a58 c6a3               +++	DEC cl		; until c=0
-   495  0a5a d0c5                       BNE loop_yup_xright
-   496  0a5c 4cda09                     JMP gexit
-   497                          
-   498                          
-   499                          ;-----------------------------------------------------------------
-   500                          
-   501                          ; line x right, y up, dx > dy (case 2)
-   502                          
-   503                          line_up_flat
-   504  0a5f 20f909                     JSR position	; x,y
-   505  0a62 a5a3               	LDA cl		; counter adjustment for
-   506  0a64 f002               	BEQ +		; dec-dec-counting
-   507  0a66 e6a4               	INC ch
-   508                          +
-   509                          loop_xright_yup
-   510  0a68 20ed03                     JSR gchange	; pixel
-   511                          
-   512  0a6b 18                         CLC		; k += dy
-   513  0a6c a595                       LDA kl
-   514  0a6e 65a9                       ADC dy
-   515  0a70 8595                       STA kl
-   516  0a72 9002                       BCC ++
-   517  0a74 e696                       INC kh
+   460                          ; mask a graphic location 
+   461                          
+   462                          gmask
+   463                          !ifdef ltc {
+   464                          	XBA
+   465                          	LDA #mc_epr		; Basic/Kernal-ROM-Simulation
+   466                          	STA memconf		; damit internes RAM gelesen werden kann!
+   467                          	XBA
+   468                          } else {
+   469  09fe eaeaeaeaeaeaeaea   	!fill 8, $ea
+   470                          }
+   471                          gmask_flip
+   472  0a06 4900                       EOR #$00
+   473                          gmask_op
+   474  0a08 11a5                       ORA (gaddr),Y
+   475  0a0a 91a5                       STA (gaddr),Y
+   476                          !ifdef ltc {
+   477                          	LDA #mc_sim		; vollständige ROM-Simulation
+   478                          	STA memconf		; wieder schnelles RAM ab $C000
+   479                          } else {
+   480  0a0c eaeaeaeaeaea       	!fill 6, $ea
+   481                          }
+   482  0a12 60                         RTS
+   483                          
+   484                          }
+   485                          
+   486                          gromcode_end
+   487                          
+   488                          ;-----------------------------------------------------------------
+   489                          
+   490                          position
+   491  0a13 a5aa                       LDA y
+   492  0a15 4a                         LSR
+   493  0a16 4a                         LSR
+   494  0a17 4a                         LSR		; y/8
+   495  0a18 a8                         TAY
+   496  0a19 2903                       AND #%00000011	; (y/8) mod 4
+   497  0a1b aa                         TAX
+   498  0a1c a59b                       LDA xl		; x low
+   499  0a1e 29f8                       AND #%11111000	; clear bit 2-0
+   500  0a20 18                         CLC
+   501  0a21 7d1109                     ADC ytabl,X	; addr low: y base + x part
+   502  0a24 85a5                       STA gaddr
+   503  0a26 a59c                       LDA xh		; addr high: x part
+   504  0a28 791509                     ADC ytabh,Y	; 	+ y base
+   505  0a2b 85a6                       STA gaddr+1
+   506  0a2d a5aa                       LDA y		; vertical offset
+   507  0a2f 2907                       AND #%00000111	; y mod 8
+   508  0a31 a8                         TAY
+   509  0a32 a59b                       LDA xl
+   510  0a34 2907                       AND #%00000111	; x mod 8
+   511  0a36 aa                         TAX		; horizonal offset
+   512  0a37 60                         RTS		; (bitmask)
+   513                          
+   514                          
+   515                          ;-----------------------------------------------------------------
+   516                          
+   517                          ; line y up, x right, dx < dy (case 1)
    518                          
-   519  0a76 c5ab               ++	CMP dxl		; k > dx?
-   520  0a78 a596                       LDA kh
-   521  0a7a e5a7                       SBC dxh
-   522  0a7c 901a                       BCC +
+   519                          line_up_steep
+   520  0a38 20130a                     JSR position	; x,y
+   521                          loop_yup_xright
+   522  0a3b 20ed03                     JSR gchange	; pixel
    523                          
-   524  0a7e 8596                       STA kh		; k -= dx
-   525  0a80 a595                       LDA kl
-   526  0a82 e5ab                       SBC dxl
-   527  0a84 8595                       STA kl
-   528                          
-   529  0a86 88                         DEY		; y--
-   530  0a87 100f                       BPL +
-   531  0a89 38                 	SEC		; C=1 not always true (SBC above)
-   532  0a8a a5a5                       LDA gaddr	; y overflow
-   533  0a8c e940                       SBC #$40	; y-8: gaddr -= 40*8 ($140)
-   534  0a8e 85a5                       STA gaddr
-   535  0a90 a5a6                       LDA gaddr+1
-   536  0a92 e901               	SBC #1
-   537  0a94 85a6                       STA gaddr+1
-   538  0a96 a007               	LDY #7		; wrap around
-   539                          
-   540  0a98 e8                 +	INX		; x++
-   541  0a99 e008                       CPX #8		; x overflow?
-   542  0a9b d00c                       BNE ++
-   543                          	; C=1
-   544  0a9d a200                       LDX #0		; wrap around
-   545  0a9f a5a5                       LDA gaddr	; x+8: gaddr += 8
-   546  0aa1 6907                       ADC #8-1	; C already set by CPX
-   547  0aa3 85a5                       STA gaddr
-   548  0aa5 9002                       BCC ++
-   549  0aa7 e6a6                       INC gaddr+1
-   550                          ++
-   551  0aa9 c6a3               	DEC cl		; c--
-   552  0aab d0bb                       BNE loop_xright_yup
-   553  0aad c6a4                       DEC ch		; adjusted high which allows this
-   554  0aaf d0b7                       BNE loop_xright_yup
-   555                          
-   556  0ab1 4cda09                     JMP gexit
+   524  0a3e 18                         CLC		; k += dx
+   525  0a3f a595                       LDA kl
+   526  0a41 65ab                       ADC dxl		; dxh is 0, because dx < dy
+   527  0a43 8595                       STA kl
+   528  0a45 b004                       BCS ++		; k > 255
+   529                          
+   530  0a47 c5a9                       CMP dy
+   531  0a49 9015                       BCC +		; k >= dy ->
+   532                          
+   533  0a4b e5a9               ++	SBC dy		; k -= dy
+   534  0a4d 8595                       STA kl
+   535                          
+   536  0a4f e8                         INX		; x++
+   537  0a50 e008                       CPX #8
+   538  0a52 d00c                       BNE +
+   539                          	; C=1
+   540  0a54 a200                       LDX #0		; x overflow, wrap around
+   541  0a56 a5a5                       LDA gaddr	; x+8: gaddr += 8
+   542  0a58 6907                       ADC #8-1	; C already set by CPX
+   543  0a5a 85a5                       STA gaddr
+   544  0a5c 9002                       BCC +
+   545  0a5e e6a6                       INC gaddr+1
+   546                          
+   547  0a60 88                 +	DEY		; y--
+   548  0a61 100f                       BPL +++
+   549  0a63 38                         SEC		; y overflow
+   550  0a64 a5a5                       LDA gaddr
+   551  0a66 e940                       SBC #$40	; y-8: gaddr -= 40*8 ($140)
+   552  0a68 85a5                       STA gaddr
+   553  0a6a a5a6                       LDA gaddr+1
+   554  0a6c e901               	SBC #1
+   555  0a6e 85a6                       STA gaddr+1
+   556  0a70 a007                       LDY #7		; wrap around
    557                          
-   558                          
-   559                          
-   560                          ;-----------------------------------------------------------------
+   558  0a72 c6a3               +++	DEC cl		; until c=0
+   559  0a74 d0c5                       BNE loop_yup_xright
+   560  0a76 4cda09                     JMP gexit
    561                          
-   562                          ; line x right, y down, dx > dy (case 3)
-   563                          
-   564                          line_down_flat
-   565  0ab4 20f909                     JSR position	; x,y
-   566  0ab7 a5a3               	LDA cl		; counter adjustment for
-   567  0ab9 f002               	BEQ +		; dec-dec-counting
-   568  0abb e6a4               	INC ch
-   569                          +
-   570                          loop_xright_ydown
-   571  0abd 20ed03                     JSR gchange	; pixel
-   572                          
-   573  0ac0 18                         CLC		; k += dy
-   574  0ac1 a595                       LDA kl
-   575  0ac3 65a9                       ADC dy
-   576  0ac5 8595                       STA kl
-   577  0ac7 9002                       BCC ++
-   578  0ac9 e696                       INC kh
-   579                          
-   580  0acb c5ab               ++	CMP dxl		; k > dx
-   581  0acd a596                       LDA kh
-   582  0acf e5a7                       SBC dxh		; k -= dx
-   583  0ad1 901b                       BCC +
-   584                          
-   585  0ad3 8596                       STA kh
-   586  0ad5 a595                       LDA kl
-   587  0ad7 e5ab                       SBC dxl
-   588  0ad9 8595                       STA kl
-   589                          
-   590  0adb c8                         INY		; y++
-   591  0adc c008                       CPY #8
-   592  0ade d00e                       BNE +
-   593                          	; C=1
-   594  0ae0 a5a5                       LDA gaddr	; y+8: gaddr += 40*8 ($140)
-   595  0ae2 693f                       ADC #$40-1	; C already set by CPY
-   596  0ae4 85a5                       STA gaddr
-   597  0ae6 a5a6                       LDA gaddr+1
-   598  0ae8 6901               	ADC #1
-   599  0aea 85a6                       STA gaddr+1
-   600  0aec a000                       LDY #0		; wrap around
-   601                          
-   602  0aee e8                 +	INX		; x++
-   603  0aef e008                       CPX #8		; x overflow ?
-   604  0af1 d00c                       BNE +++
-   605                          	; C=1
-   606  0af3 a200                       LDX #$00	; wrap around
-   607  0af5 a5a5                       LDA gaddr	; gaddr += 8
-   608  0af7 6907                       ADC #$08-1	; C always set by CPX
-   609  0af9 85a5                       STA gaddr
-   610  0afb 9002                       BCC +++
-   611  0afd e6a6                       INC gaddr+1
-   612                          +++
-   613  0aff c6a3               	DEC cl		; c--
-   614  0b01 d0ba                       BNE loop_xright_ydown
-   615  0b03 c6a4                       DEC ch		; adjusted high which allows this
-   616  0b05 d0b6                       BNE loop_xright_ydown
-   617                          
-   618  0b07 4cda09                     JMP gexit
+   562                          
+   563                          ;-----------------------------------------------------------------
+   564                          
+   565                          ; line x right, y up, dx > dy (case 2)
+   566                          
+   567                          line_up_flat
+   568  0a79 20130a                     JSR position	; x,y
+   569  0a7c a5a3               	LDA cl		; counter adjustment for
+   570  0a7e f002               	BEQ +		; dec-dec-counting
+   571  0a80 e6a4               	INC ch
+   572                          +
+   573                          loop_xright_yup
+   574  0a82 20ed03                     JSR gchange	; pixel
+   575                          
+   576  0a85 18                         CLC		; k += dy
+   577  0a86 a595                       LDA kl
+   578  0a88 65a9                       ADC dy
+   579  0a8a 8595                       STA kl
+   580  0a8c 9002                       BCC ++
+   581  0a8e e696                       INC kh
+   582                          
+   583  0a90 c5ab               ++	CMP dxl		; k > dx?
+   584  0a92 a596                       LDA kh
+   585  0a94 e5a7                       SBC dxh
+   586  0a96 901a                       BCC +
+   587                          
+   588  0a98 8596                       STA kh		; k -= dx
+   589  0a9a a595                       LDA kl
+   590  0a9c e5ab                       SBC dxl
+   591  0a9e 8595                       STA kl
+   592                          
+   593  0aa0 88                         DEY		; y--
+   594  0aa1 100f                       BPL +
+   595  0aa3 38                 	SEC		; C=1 not always true (SBC above)
+   596  0aa4 a5a5                       LDA gaddr	; y overflow
+   597  0aa6 e940                       SBC #$40	; y-8: gaddr -= 40*8 ($140)
+   598  0aa8 85a5                       STA gaddr
+   599  0aaa a5a6                       LDA gaddr+1
+   600  0aac e901               	SBC #1
+   601  0aae 85a6                       STA gaddr+1
+   602  0ab0 a007               	LDY #7		; wrap around
+   603                          
+   604  0ab2 e8                 +	INX		; x++
+   605  0ab3 e008                       CPX #8		; x overflow?
+   606  0ab5 d00c                       BNE ++
+   607                          	; C=1
+   608  0ab7 a200                       LDX #0		; wrap around
+   609  0ab9 a5a5                       LDA gaddr	; x+8: gaddr += 8
+   610  0abb 6907                       ADC #8-1	; C already set by CPX
+   611  0abd 85a5                       STA gaddr
+   612  0abf 9002                       BCC ++
+   613  0ac1 e6a6                       INC gaddr+1
+   614                          ++
+   615  0ac3 c6a3               	DEC cl		; c--
+   616  0ac5 d0bb                       BNE loop_xright_yup
+   617  0ac7 c6a4                       DEC ch		; adjusted high which allows this
+   618  0ac9 d0b7                       BNE loop_xright_yup
    619                          
-   620                          
-   621                          ;-----------------------------------------------------------------
+   620  0acb 4cda09                     JMP gexit
+   621                          
    622                          
-   623                          ; line y down, x right, dx < dy (case 4)
-   624                          
-   625                          line_down_steep
-   626  0b0a 20f909                     JSR position	; x,y
-   627                          loop_ydown_xright
-   628  0b0d 20ed03                     JSR gchange	; pixel
-   629                          
-   630  0b10 18                         CLC		; k += dx
-   631  0b11 a595                       LDA kl
-   632  0b13 65ab                       ADC dxl		; dxh is 0, because dx < dy
-   633  0b15 8595                       STA kl
-   634  0b17 b004                       BCS ++
-   635  0b19 c5a9                       CMP dy		; k > dy?
-   636  0b1b 9015                       BCC +
-   637  0b1d e5a9               ++	SBC dy		; k -= dy
-   638  0b1f 8595                       STA kl
-   639                          
-   640  0b21 e8                         INX		; x++
-   641  0b22 e008                       CPX #8
-   642  0b24 d00c                       BNE +		; x overflow?
-   643  0b26 a200                       LDX #0		; wrap around
-   644  0b28 a5a5                       LDA gaddr	; x+9: gaddr += 8
-   645  0b2a 6907                       ADC #8-1	; C already set by CPX
-   646  0b2c 85a5                       STA gaddr
-   647  0b2e 9002                       BCC +
-   648  0b30 e6a6                       INC gaddr+1
-   649                          
-   650  0b32 c8                 +	INY		; y++
-   651  0b33 c008                       CPY #8		; y overflow?
-   652  0b35 d00e                       BNE +++
-   653  0b37 a5a5                       LDA gaddr	; y+8: gaddr += 40*8 ($140)
-   654  0b39 693f                       ADC #$40-1	; C already set by CPY
-   655  0b3b 85a5                       STA gaddr
-   656  0b3d a5a6                       LDA gaddr+1
-   657  0b3f 6901               	ADC #1
-   658  0b41 85a6                       STA gaddr+1
-   659  0b43 a000                       LDY #0		; wrap around
-   660                          
-   661  0b45 c6a3               +++	DEC cl		; c--
-   662                          			; until c=0
-   663  0b47 d0c4                       BNE loop_ydown_xright
-   664  0b49 4cda09                     JMP gexit
+   623                          
+   624                          ;-----------------------------------------------------------------
+   625                          
+   626                          ; line x right, y down, dx > dy (case 3)
+   627                          
+   628                          line_down_flat
+   629  0ace 20130a                     JSR position	; x,y
+   630  0ad1 a5a3               	LDA cl		; counter adjustment for
+   631  0ad3 f002               	BEQ +		; dec-dec-counting
+   632  0ad5 e6a4               	INC ch
+   633                          +
+   634                          loop_xright_ydown
+   635  0ad7 20ed03                     JSR gchange	; pixel
+   636                          
+   637  0ada 18                         CLC		; k += dy
+   638  0adb a595                       LDA kl
+   639  0add 65a9                       ADC dy
+   640  0adf 8595                       STA kl
+   641  0ae1 9002                       BCC ++
+   642  0ae3 e696                       INC kh
+   643                          
+   644  0ae5 c5ab               ++	CMP dxl		; k > dx
+   645  0ae7 a596                       LDA kh
+   646  0ae9 e5a7                       SBC dxh		; k -= dx
+   647  0aeb 901b                       BCC +
+   648                          
+   649  0aed 8596                       STA kh
+   650  0aef a595                       LDA kl
+   651  0af1 e5ab                       SBC dxl
+   652  0af3 8595                       STA kl
+   653                          
+   654  0af5 c8                         INY		; y++
+   655  0af6 c008                       CPY #8
+   656  0af8 d00e                       BNE +
+   657                          	; C=1
+   658  0afa a5a5                       LDA gaddr	; y+8: gaddr += 40*8 ($140)
+   659  0afc 693f                       ADC #$40-1	; C already set by CPY
+   660  0afe 85a5                       STA gaddr
+   661  0b00 a5a6                       LDA gaddr+1
+   662  0b02 6901               	ADC #1
+   663  0b04 85a6                       STA gaddr+1
+   664  0b06 a000                       LDY #0		; wrap around
    665                          
-   666                          
-   667                          ;-----------------------------------------------------------------
-   668                          
-   669                          getcommaxy
-   670  0b4c 20fdae                     JSR b_getcomma	; check ","
-   671                          getxy
-   672  0b4f 208aad                     JSR b_getval	; get X coord. value
-   673  0b52 20f7b7                     JSR b_convint
-   674  0b55 c901                       CMP #>xmax
-   675  0b57 9009               	BCC gcxy_xok
-   676  0b59 f003                       BEQ +		; X = $1xx
-   677                          error_iq
-   678  0b5b 20730d                     JSR range_error
-   679  0b5e c040               +	CPY #<xmax	; check X low
-   680  0b60 b0f9                       BCS error_iq	; X to big
-   681                          gcxy_xok
-   682  0b62 84fb                       STY gpos	; temporary save X coord.
-   683  0b64 85fc                       STA gpos+1
+   666  0b08 e8                 +	INX		; x++
+   667  0b09 e008                       CPX #8		; x overflow ?
+   668  0b0b d00c                       BNE +++
+   669                          	; C=1
+   670  0b0d a200                       LDX #$00	; wrap around
+   671  0b0f a5a5                       LDA gaddr	; gaddr += 8
+   672  0b11 6907                       ADC #$08-1	; C always set by CPX
+   673  0b13 85a5                       STA gaddr
+   674  0b15 9002                       BCC +++
+   675  0b17 e6a6                       INC gaddr+1
+   676                          +++
+   677  0b19 c6a3               	DEC cl		; c--
+   678  0b1b d0ba                       BNE loop_xright_ydown
+   679  0b1d c6a4                       DEC ch		; adjusted high which allows this
+   680  0b1f d0b6                       BNE loop_xright_ydown
+   681                          
+   682  0b21 4cda09                     JMP gexit
+   683                          
    684                          
-   685  0b66 20f1b7                     JSR b_getcomma8bit
-   686                          			; get Y coord. value
-   687  0b69 e0c8                       CPX #ymax
-   688  0b6b b0ee                       BCS error_iq	; Y to big
-   689                          
-   690  0b6d a4fb                       LDY gpos	; restory X coord.
-   691  0b6f a5fc                       LDA gpos+1
-   692  0b71 60                         RTS
+   685                          ;-----------------------------------------------------------------
+   686                          
+   687                          ; line y down, x right, dx < dy (case 4)
+   688                          
+   689                          line_down_steep
+   690  0b24 20130a                     JSR position	; x,y
+   691                          loop_ydown_xright
+   692  0b27 20ed03                     JSR gchange	; pixel
    693                          
-   694                          
-   695                          ;-----------------------------------------------------------------
-   696                          
-   697                          hline
-   698  0b72 204f0b                     JSR getxy	; get startpoint
-   699  0b75 86aa                       STX y
-   700  0b77 8e3603                     STX savey	; save as cursor, too
-   701  0b7a 859c                       STA xh
-   702  0b7c 849b                       STY xl
-   703  0b7e 20fdae                     JSR b_getcomma	; get length
-   704  0b81 208aad                     JSR b_getval
-   705  0b84 20f7b7                     JSR b_convint
-   706                          
-   707  0b87 c901                       CMP #>xmax
-   708  0b89 9006                       BCC +		; X < 256
-   709  0b8b d0ce                       BNE error_iq
-   710  0b8d c040                       CPY #<xmax
-   711  0b8f b0ca                       BCS error_iq
-   712                          +
-   713                          			; calculate end point
-   714  0b91 aa                         TAX		; save length high byte
-   715  0b92 98                         TYA		; length low byte
-   716  0b93 18                         CLC
-   717  0b94 659b                       ADC xl		; low xend = x+length
-   718  0b96 859e                       STA xendl
-   719  0b98 a8                 	TAY
-   720  0b99 8a                         TXA		; high
-   721  0b9a 659c                       ADC xh		; high xend = x+length
-   722  0b9c 859f                       STA xendh
-   723  0b9e aa                 	TAX
+   694  0b2a 18                         CLC		; k += dx
+   695  0b2b a595                       LDA kl
+   696  0b2d 65ab                       ADC dxl		; dxh is 0, because dx < dy
+   697  0b2f 8595                       STA kl
+   698  0b31 b004                       BCS ++
+   699  0b33 c5a9                       CMP dy		; k > dy?
+   700  0b35 9015                       BCC +
+   701  0b37 e5a9               ++	SBC dy		; k -= dy
+   702  0b39 8595                       STA kl
+   703                          
+   704  0b3b e8                         INX		; x++
+   705  0b3c e008                       CPX #8
+   706  0b3e d00c                       BNE +		; x overflow?
+   707  0b40 a200                       LDX #0		; wrap around
+   708  0b42 a5a5                       LDA gaddr	; x+9: gaddr += 8
+   709  0b44 6907                       ADC #8-1	; C already set by CPX
+   710  0b46 85a5                       STA gaddr
+   711  0b48 9002                       BCC +
+   712  0b4a e6a6                       INC gaddr+1
+   713                          
+   714  0b4c c8                 +	INY		; y++
+   715  0b4d c008                       CPY #8		; y overflow?
+   716  0b4f d00e                       BNE +++
+   717  0b51 a5a5                       LDA gaddr	; y+8: gaddr += 40*8 ($140)
+   718  0b53 693f                       ADC #$40-1	; C already set by CPY
+   719  0b55 85a5                       STA gaddr
+   720  0b57 a5a6                       LDA gaddr+1
+   721  0b59 6901               	ADC #1
+   722  0b5b 85a6                       STA gaddr+1
+   723  0b5d a000                       LDY #0		; wrap around
    724                          
-   725  0b9f c901               	CMP #>xmax	; endpoint outside?
-   726  0ba1 9005               	BCC +
-   727  0ba3 98                 	TYA
-   728  0ba4 e940               	SBC #<xmax
-   729  0ba6 b0b3               	BCS error_iq
-   730                          +
-   731  0ba8 8e3503                     STX savexh
-   732  0bab 8c3403                     STY savexl	; also save as cursor
-   733                          
-   734  0bae 20e209                     JSR ginit	; map in graphic memory
-   735                          
-   736                          hline_start
-   737  0bb1 a59e                       LDA xendl
-   738  0bb3 c59b                       CMP xl
-   739  0bb5 a59f                       LDA xendh
-   740  0bb7 e59c                       SBC xh
-   741  0bb9 b013                       BCS hl_noxswap	; xend < x ->
+   725  0b5f c6a3               +++	DEC cl		; c--
+   726                          			; until c=0
+   727  0b61 d0c4                       BNE loop_ydown_xright
+   728  0b63 4cda09                     JMP gexit
+   729                          
+   730                          
+   731                          ;-----------------------------------------------------------------
+   732                          
+   733                          getcommaxy
+   734  0b66 20fdae                     JSR b_getcomma	; check ","
+   735                          getxy
+   736  0b69 208aad                     JSR b_getval	; get X coord. value
+   737  0b6c 20f7b7                     JSR b_convint
+   738  0b6f c901                       CMP #>xmax
+   739  0b71 900c               	BCC gcxy_xok
+   740  0b73 f003                       BEQ ++		; X = $1xx
+   741  0b75 20ea0d                     JSR range_error
    742                          
-   743  0bbb a69e                       LDX xendl	; swap x, xend
-   744  0bbd a59b                       LDA xl
-   745  0bbf 869b                       STX xl
-   746  0bc1 859e                       STA xendl
-   747                          
-   748  0bc3 a69f                       LDX xendh
-   749  0bc5 a49c                       LDY xh
-   750  0bc7 849f                       STY xendh
-   751  0bc9 869c                       STX xh
-   752  0bcb 4cdd0b                     JMP hl_start	; x != xend
-   753                          
-   754                          hl_noxswap
-   755  0bce a59e                       LDA xendl
-   756  0bd0 c59b                       CMP xl
-   757  0bd2 d009                       BNE hl_start
-   758  0bd4 a59f                       LDA xendh
-   759  0bd6 c59c                       CMP xh
-   760  0bd8 d003                       BNE hl_start	; x = xend ->
-   761  0bda 4c510d             	JMP plot_start	; single point
-   762                          ;	JMP gexit	; no point
+   743  0b78 c040               ++	CPY #<xmax	; check X low
+   744  0b7a 9003                       BCC +
+   745  0b7c 20ea0d                     JSR range_error
+   746                          +
+   747                          gcxy_xok
+   748  0b7f 84fb                       STY gpos	; temporary save X coord.
+   749  0b81 85fc                       STA gpos+1
+   750                          
+   751  0b83 20f1b7                     JSR b_getcomma8bit
+   752                          			; get Y coord. value
+   753  0b86 e0c8                       CPX #ymax
+   754  0b88 9003                       BCC +
+   755  0b8a 20ea0d                     JSR range_error
+   756                          +
+   757  0b8d a4fb                       LDY gpos	; restory X coord.
+   758  0b8f a5fc                       LDA gpos+1
+   759  0b91 60                         RTS
+   760                          
+   761                          
+   762                          ;-----------------------------------------------------------------
    763                          
-   764                          hl_start
-   765  0bdd 20f909                     JSR position	; graphic position x,y
-   766  0be0 bd2e09                     LDA maskleft,X
-   767  0be3 48                         PHA		; save left end mask
-   768  0be4 a59e                       LDA xendl
-   769  0be6 2907                       AND #%00000111
-   770  0be8 8596                       STA tmp2	; xend mod 8, mask index
-   771  0bea a59b                       LDA xl
-   772  0bec 29f8                       AND #%11111000	; (xl div 8)*8
-   773  0bee 8595                       STA tmp1
-   774  0bf0 a59e                       LDA xendl	; xend unmasked
-   775  0bf2 38                         SEC
-   776  0bf3 e595                       SBC tmp1	; finally: xend - (x div 8)*8 
-   777  0bf5 8595                       STA tmp1
-   778  0bf7 a59f                       LDA xendh
-   779  0bf9 e59c                       SBC xh
-   780  0bfb 4a                         LSR		; / 8 ->  0-39
-   781  0bfc a595                       LDA tmp1	; only 1 highest bit
-   782  0bfe 6a                         ROR		; and 3 lower bits
-   783  0bff 4a                         LSR
-   784  0c00 4a                         LSR
-   785  0c01 aa                         TAX		; 8-pixel-blocks count
-   786  0c02 68                         PLA		; left end x mask
-   787                          
-   788                          hl_nextblock
-   789  0c03 ca                         DEX
-   790                          hl_islastblock
-   791  0c04 3012                       BMI hl_lastblock
-   792                          			; leave loop if X<0
-   793  0c06 20f503                     JSR gmask	; first with left end mask
-   794  0c09 18                         CLC		; gaddr += 8
-   795  0c0a a5a5                       LDA gaddr
-   796  0c0c 6908                       ADC #8
-   797  0c0e 85a5                       STA gaddr
-   798  0c10 9002                       BCC +
-   799  0c12 e6a6                       INC gaddr+1
-   800  0c14 a9ff               +	LDA #$FF	; following with full 8-pixel mask
-   801  0c16 d0eb               	BNE hl_nextblock	; always
-   802                          
-   803                          hl_lastblock
-   804  0c18 a696                       LDX tmp2	; xend mask index
-   805  0c1a 3d3609                     AND maskright,X ; mask right end
-   806  0c1d 20f503                     JSR gmask	; modify
-   807  0c20 4cda09                     JMP gexit	; leave
-   808                          
-   809                          
-   810                          ;-----------------------------------------------------------------
-   811                          
-   812                          vline
-   813  0c23 204f0b                     JSR getxy	; get startpoint
-   814  0c26 859c                       STA xh
-   815  0c28 8d3503                     STA savexh	; save as cursor too
-   816  0c2b 849b                       STY xl
-   817  0c2d 8c3403                     STY savexl
-   818  0c30 86aa                       STX y
-   819                          
-   820  0c32 20f1b7                     JSR b_getcomma8bit
-   821                          			; get length
-   822  0c35 18                         CLC		; calculate end point
-   823  0c36 8a                         TXA		; length
-   824                          ; DON'T-CHANGE: how long to go vertically (needed later)
-   825                          ;		DO NOT USE: tmp1 does not exist if called via vline_start!
-   826                          ;	STA tmp1
-   827  0c37 65aa                       ADC y		; length + y
-   828  0c39 c9c8                       CMP #ymax
-   829  0c3b 9003                       BCC +
-   830                          vline_iq
-   831  0c3d 20730d                     JSR range_error
-   832  0c40 8593               +	STA yend	; endpoint
-   833  0c42 c9c8               	CMP #ymax	; outside?
-   834  0c44 b0f7               	BCS vline_iq
-   835                          
-   836  0c46 8d3603             	STA savey	; set cursor y position
-   837                          
-   838  0c49 20e209                     JSR ginit	; map in graphic memory
-   839                          
-   840                          vline_start
-   841  0c4c a593                       LDA yend
-   842  0c4e c5aa                       CMP y
-   843  0c50 b00a                       BCS vl_noyswap	; yend < y ->
-   844  0c52 a5aa                       LDA y		; swap y, yend
-   845  0c54 a693                       LDX yend
-   846  0c56 8593                       STA yend
-   847  0c58 86aa                       STX y
-   848  0c5a f005               	BEQ vl_start	; always (with next branch)
-   849                          	; fall through if yend is
-   850                          vl_noyswap
-   851  0c5c d003                       BNE vl_start	; y = yend ->
-   852  0c5e 4c510d             	JMP plot_start	; single point
-   853                          ;	JMP gexit	; no point
-   854                          
-   855                          vl_start
-   856  0c61 20f909                     JSR position	; graphic position x,y
-   857  0c64 bd0109                     LDA bitmask,X
-   858  0c67 8596                       STA tmp2	; save mask
-   859                          ; DON'T-CHANGE: replace ...
-   860  0c69 38                         SEC
-   861  0c6a a593                       LDA yend
-   862  0c6c e5aa                       SBC y		; vertical length
-   863  0c6e aa                         TAX
-   864                          ; DON'T-CHANGE: replacy by ... (already as parameter, from tmp1)
-   865                          ;		DO NOT USE: tmp1 does not exist if called via vline_start!
-   866                          ;	LDX tmp1
-   867  0c6f e8                         INX		; +1 (exit on 0)
-   868                          vl_nextline
-   869  0c70 a596                       LDA tmp2
-   870  0c72 20f503                     JSR gmask	; modify 
-   871  0c75 c8                         INY		; go down
-   872  0c76 c008                       CPY #8		; 8-line wrap
-   873  0c78 d00e                       BNE +
-   874  0c7a a5a5                       LDA gaddr	; gaddr += 320
-   875  0c7c 693f               	ADC #$40-1	; compensate for C = 1
-   876  0c7e 85a5                       STA gaddr
-   877  0c80 a5a6                       LDA gaddr+1
-   878  0c82 6901                       ADC #$01
-   879  0c84 85a6                       STA gaddr+1
-   880  0c86 a000                       LDY #0		; wrap y offset
-   881  0c88 ca                 +	DEX		; all vertical positions done?
-   882  0c89 d0e5                       BNE vl_nextline
-   883  0c8b 4cda09                     JMP gexit	; leave
-   884                          
-   885                          
-   886                          ;-----------------------------------------------------------------
-   887                          
-   888                          line
-   889  0c8e 204f0b                     JSR getxy	; get startpoint
-   890  0c91 849b                       STY xl 
-   891  0c93 859c                       STA xh
-   892  0c95 86aa                       STX y
+   764                          hline
+   765  0b92 20690b                     JSR getxy	; get startpoint
+   766  0b95 86aa                       STX y
+   767  0b97 8e3603                     STX savey	; save as cursor, too
+   768  0b9a 859c                       STA xh
+   769  0b9c 849b                       STY xl
+   770  0b9e 20fdae                     JSR b_getcomma	; get length
+   771  0ba1 208aad                     JSR b_getval
+   772  0ba4 20f7b7                     JSR b_convint
+   773                          			; calculate end point
+   774  0ba7 aa                         TAX		; save length high byte
+   775  0ba8 98                         TYA		; length low byte
+   776  0ba9 18                         CLC
+   777  0baa 659b                       ADC xl		; low xend = x+length
+   778  0bac 859e                       STA xendl
+   779  0bae a8                 	TAY
+   780  0baf 8a                         TXA		; high
+   781  0bb0 659c                       ADC xh		; high xend = x+length
+   782  0bb2 859f                       STA xendh
+   783  0bb4 aa                 	TAX
+   784                          
+   785  0bb5 c901               	CMP #>xmax	; endpoint outside?
+   786  0bb7 900a               	BCC +
+   787  0bb9 d005               	BNE ++		; >=$200
+   788  0bbb 98                 	TYA
+   789  0bbc e940               	SBC #<xmax
+   790  0bbe 9003               	BCC +
+   791  0bc0 20ea0d             ++	JSR range_error
+   792                          +
+   793  0bc3 8e3503                     STX savexh
+   794  0bc6 8c3403                     STY savexl	; also save as cursor
+   795                          
+   796  0bc9 a900               	LDA #0
+   797  0bcb 85a3               	STA ycount
+   798  0bcd 207900             	JSR $0079
+   799  0bd0 f012               	BEQ +
+   800  0bd2 20f1b7             	JSR b_getcomma8bit
+   801  0bd5 8a                 	TXA
+   802  0bd6 85a3               	STA ycount
+   803  0bd8 f00a               	BEQ +
+   804  0bda 18                 	CLC
+   805  0bdb 65aa               	ADC y		; end position for y coord.
+   806  0bdd c9c8               	CMP #ymax
+   807  0bdf 9003               	BCC ++
+   808  0be1 20ea0d             	JSR range_error
+   809                          ++
+   810                          +
+   811  0be4 20e209                     JSR ginit	; map in graphic memory
+   812  0be7 d01a               	BNE hl_noxswap	; ginit left with Z=0
+   813                          
+   814                          hline_start
+   815  0be9 a59e                       LDA xendl
+   816  0beb c59b                       CMP xl
+   817  0bed a59f                       LDA xendh
+   818  0bef e59c                       SBC xh
+   819  0bf1 b010                       BCS hl_noxswap	; xend < x ->
+   820                          
+   821  0bf3 a69e                       LDX xendl	; swap x, xend
+   822  0bf5 a59b                       LDA xl
+   823  0bf7 869b                       STX xl
+   824  0bf9 859e                       STA xendl
+   825                          
+   826  0bfb a69f                       LDX xendh
+   827  0bfd a49c                       LDY xh
+   828  0bff 849f                       STY xendh
+   829  0c01 869c                       STX xh
+   830                          hl_noxswap
+   831  0c03 e6a3               	INC ycount
+   832                          hl_start
+   833  0c05 20130a                     JSR position	; graphic position x,y
+   834                          
+   835  0c08 a5a5               	LDA gaddr	; save position for vertical
+   836  0c0a 85fb               	STA sgaddr
+   837  0c0c a5a6               	LDA gaddr+1
+   838  0c0e 85fc               	STA sgaddr+1
+   839  0c10 86fd               	STX xsave
+   840  0c12 84a9               	STY ysave
+   841                          
+   842  0c14 a59e                       LDA xendl
+   843  0c16 2907                       AND #%00000111
+   844  0c18 8596                       STA tmp2	; xend mod 8, mask index
+   845  0c1a a59b                       LDA xl
+   846  0c1c 29f8                       AND #%11111000	; (xl div 8)*8
+   847  0c1e 8595                       STA tmp1
+   848  0c20 a59e                       LDA xendl	; xend unmasked
+   849  0c22 38                         SEC
+   850  0c23 e595                       SBC tmp1	; finally: xend - (x div 8)*8 
+   851  0c25 8595                       STA tmp1
+   852  0c27 a59f                       LDA xendh
+   853  0c29 e59c                       SBC xh
+   854  0c2b 4a                         LSR		; / 8 ->  0-39
+   855  0c2c a595                       LDA tmp1	; only 1 highest bit
+   856  0c2e 6a                         ROR		; and 3 lower bits
+   857  0c2f 4a                         LSR
+   858  0c30 4a                         LSR
+   859                                  		; 8-pixel-blocks count
+   860  0c31 85a4               	STA hcount	; save for vertical extension
+   861                           
+   862                          hl_vertloop
+   863  0c33 98                 	TYA		; calculate max. Y in 8x8 block
+   864  0c34 18                 	CLC
+   865  0c35 65a3               	ADC ycount
+   866  0c37 c908               	CMP #8
+   867  0c39 9002               	BCC +
+   868  0c3b a908               	LDA #8
+   869  0c3d 85a8               +	STA ylimit
+   870                          
+   871  0c3f bd2e09                     LDA maskleft,X	; starting mask
+   872  0c42 8595               	STA tmp1
+   873  0c44 a6a4               	LDX hcount	; how many blocks
+   874                          
+   875                          hl_nextblock
+   876  0c46 ca                         DEX
+   877                          hl_islastblock
+   878  0c47 301d                       BMI hl_lastblock
+   879                          			; leave loop if X<0
+   880  0c49 a4a9               	LDY ysave
+   881  0c4b a595               -	LDA tmp1	; mask
+   882  0c4d 200104             	JSR gmask	; first with left end mask
+   883  0c50 c8                 	INY		; vertical down
+   884  0c51 c4a8               	CPY ylimit	; in 8x8 box
+   885  0c53 d0f6               	BNE -
+   886                          
+   887  0c55 18                         CLC		; gaddr += 8 (one block to right)
+   888  0c56 a5a5                       LDA gaddr
+   889  0c58 6908                       ADC #8
+   890  0c5a 85a5                       STA gaddr
+   891  0c5c 9002                       BCC +
+   892  0c5e e6a6                       INC gaddr+1
    893                          
-   894  0c97 204c0b                     JSR getcommaxy	; get endpoint
-   895                          line_start
-   896  0c9a 8c3403                     STY savexl	; save as cursor position too
-   897  0c9d 849e                       STY xendl
-   898  0c9f 8d3503                     STA savexh
-   899  0ca2 859f                       STA xendh
-   900  0ca4 8e3603                     STX savey
-   901  0ca7 8693                       STX yend
-   902                          
-   903  0ca9 20e209                     JSR ginit	; map in graphic memory
-   904                          
-   905  0cac a000                       LDY #$00	; initialize to 0
-   906  0cae 84a8                       STY ydir
-   907  0cb0 8495                       STY kl
-   908  0cb2 8496                       STY kh
+   894  0c60 a9ff               +	LDA #$FF	; following with full 8-pixel mask
+   895  0c62 8595               	STA tmp1
+   896  0c64 d0e0               	BNE hl_nextblock	; always
+   897                          
+   898                          hl_lastblock
+   899  0c66 a696                       LDX tmp2	; xend mask index
+   900  0c68 3d3609                     AND maskright,X ; A has current maskt combine with mask right end
+   901  0c6b 8595               	STA tmp1	; mask
+   902  0c6d a4a9               	LDY ysave	; start position in 8x8 block
+   903  0c6f a595               -	LDA tmp1	; mask
+   904  0c71 200104             	JSR gmask	; modify
+   905  0c74 c8                 	INY		; vertical down
+   906  0c75 c6a3               	DEC ycount	; overall y counter
+   907  0c77 c4a8               	CPY ylimit
+   908  0c79 d0f4               	BNE -
    909                          
-   910  0cb4 38                         SEC
-   911  0cb5 a59e                       LDA xendl	; calculate dx
-   912  0cb7 e59b                       SBC xl
-   913  0cb9 85ab                       STA dxl
-   914  0cbb a59f                       LDA xendh
-   915  0cbd e59c                       SBC xh
-   916  0cbf 85a7                       STA dxh
-   917                          
-   918  0cc1 b025                       BCS li_xend_right
-   919                          	; dx != 0
-   920  0cc3 98                         TYA		; negate dx
-   921  0cc4 38                         SEC		; dx = 0 - dx
-   922  0cc5 e5ab                       SBC dxl
-   923  0cc7 85ab                       STA dxl
-   924  0cc9 98                         TYA
-   925  0cca e5a7                       SBC dxh
-   926  0ccc 85a7                       STA dxh
-   927                          			; C=0 always, needed later
-   928  0cce a69b                       LDX xl		; swap x low
-   929  0cd0 a49e                       LDY xendl
-   930  0cd2 869e                       STX xendl
-   931  0cd4 849b                       STY xl
-   932                          
-   933  0cd6 a69c                       LDX xh		; swap x high
-   934  0cd8 a49f                       LDY xendh
-   935  0cda 869f                       STX xendh
-   936  0cdc 849c                       STY xh
-   937                          
-   938  0cde a6aa                       LDX y		; swap y
-   939  0ce0 a493                       LDY yend
-   940  0ce2 8693                       STX yend
-   941  0ce4 84aa                       STY y
-   942                          
-   943  0ce6 9009                       BCC li_x_different
-   944                          			; C=0 always (from negation before)
-   945                          
-   946                          li_xend_right
-   947  0ce8 a5ab                       LDA dxl		; dx = 0?
-   948  0cea 05a7                       ORA dxh
-   949  0cec d003                       BNE li_x_different
-   950  0cee 4c4c0c                     JMP vline_start	; vertical line case
-   951                          
-   952                          li_x_different
-   953  0cf1 38                         SEC		; calculate dy
-   954  0cf2 a593                       LDA yend
-   955  0cf4 e5aa                       SBC y
-   956  0cf6 b006                       BCS li_y_right
-   957  0cf8 49ff                       EOR #$FF	; negate dy (two's complement)
-   958  0cfa 6901                       ADC #$01	; C=0
-   959  0cfc 85a8                       STA ydir	; flag y goes up
-   960                          
-   961                          li_y_right
-   962  0cfe 85a9                       STA dy
-   963  0d00 d003                       BNE +
-   964  0d02 4cb10b                     JMP hline_start	; horizontal line case
-   965                          +
-   966                          	; dx and dy is *always* !=0, otherwise hline or vline got called.
-   967                          
-   968  0d05 a5a7                       LDA dxh		; dx > dy
-   969  0d07 d017                       BNE line_flat	; yes -> flat
-   970  0d09 a5a9                       LDA dy		; no -> steep
-   971  0d0b aa                         TAX
-   972  0d0c c5ab                       CMP dxl
-   973  0d0e 9010                       BCC line_flat
-   974                          
-   975                          line_steep
-   976  0d10 e8                         INX	
-   977  0d11 86a3                       STX cl		; c = dy+1
-   978  0d13 4a                         LSR		; k = dy/2
-   979  0d14 8595                       STA kl
-   980  0d16 a5a8                       LDA ydir
-   981  0d18 d003                       BNE +
-   982  0d1a 4c0a0b                     JMP line_down_steep	; y down, steep
-   983  0d1d 4c1e0a             +	JMP line_up_steep	; y up, steep
-   984                          
-   985                          line_flat
-   986  0d20 a5a7                       LDA dxh
-   987  0d22 a8                         TAY
-   988  0d23 a6ab                       LDX dxl
-   989  0d25 e8                         INX
-   990  0d26 d001                       BNE +
-   991  0d28 c8                         INY
-   992  0d29 86a3               +	STX cl		; c = dx+1
-   993  0d2b 84a4                       STY ch
-   994                          
-   995  0d2d 4a                         LSR		; k = dx/2
-   996  0d2e 8596                       STA kh
-   997  0d30 a5ab                       LDA dxl
-   998  0d32 6a                         ROR		; dx/2
-   999  0d33 8595                       STA kl
-  1000  0d35 a5a8                       LDA ydir	
-  1001  0d37 d003                       BNE +
-  1002  0d39 4cb40a                     JMP line_down_flat	; y down, flat
-  1003  0d3c 4c5f0a             +	JMP line_up_flat	; y up, flat
-  1004                          
-  1005                          ;-----------------------------------------------------------------
-  1006                          
-  1007                          plot
-  1008  0d3f 204f0b                     JSR getxy	; get parameter
-  1009  0d42 859c                       STA xh		; save x/y
-  1010  0d44 849b                       STY xl
-  1011  0d46 86aa                       STX y
-  1012  0d48 8d3503                     STA savexh	; and store as cursor
-  1013  0d4b 8c3403                     STY savexl
-  1014  0d4e 8e3603                     STX savey
-  1015                          
-  1016                          plot_start
-  1017  0d51 20f909                     JSR position	; calculate graphical address
-  1018                          
-  1019  0d54 a501                       LDA prozport
-  1020  0d56 29fd                       AND #%11111101	; Kernal ROM disable
-  1021  0d58 78                         SEI			
-  1022  0d59 8501                       STA prozport
-  1023                          
-  1024  0d5b 20ed03                     JSR gchange	; change graphical data
-  1025                          
-  1026  0d5e a501                       LDA prozport
-  1027  0d60 0902                       ORA #%00000010	; kernal ROM enable
-  1028  0d62 8501                       STA prozport
-  1029  0d64 58                         CLI
-  1030  0d65 60                         RTS
-  1031                          
-  1032                          ;-----------------------------------------------------------------
-  1033                          
-  1034                          move
-  1035  0d66 204f0b                     JSR getxy	; get parameter
-  1036  0d69 8d3503                     STA savexh	; just save as cursor
-  1037  0d6c 8c3403                     STY savexl
-  1038  0d6f 8e3603                     STX savey
-  1039  0d72 60                         RTS
-  1040                          
-  1041                          
-  1042                          ;-----------------------------------------------------------------
-  1043                          
-  1044                          range_error
-  1045  0d73 ad3703             	LDA savemo
-  1046  0d76 29f0               	AND #$F0
-  1047  0d78 d003               	BNE +
-  1048  0d7a 68                 	PLA			; cleanup JSR
-  1049  0d7b 68                 	PLA
-  1050  0d7c 60                 -	RTS			; error mode 0: do nothing, back to caller before
-  1051                          				; error mode 2: cut value: control back
-  1052                          				; to handle value correction
-  1053  0d7d 2920               +	AND #$20
-  1054  0d7f d0fb               	BNE -
-  1055  0d81 68                 	PLA			; cleanup JSR
-  1056  0d82 68                 	PLA
-  1057                          setmode_error
-  1058  0d83 4c48b2             	JMP b_illquant		; error mode 1: throw error message
-  1059                          
-  1060                          ;-----------------------------------------------------------------
-  1061                          
-  1062                          setmode
-  1063  0d86 209eb7                     JSR b_get8bit
-  1064  0d89 e003                       CPX #3
-  1065  0d8b 9012                       BCC +			; less then 3, modification mode
-  1066  0d8d e006               	CPX #6
-  1067  0d8f b0f2               	BCS setmode_error	; out of range
-  1068                          				; error mode
-  1069  0d91 690d               	ADC #13			; C=0, therefore -3
-  1070                          				; 3-5 -> 16-18
-  1071                          				; put A's bit 4-7 into savemo
-  1072  0d93 4d3703             	EOR savemo		; ********
-  1073  0d96 29f0               	AND #$F0		; ****0000
-  1074  0d98 4d3703             	EOR savemo		; AAAAmmmm
-  1075  0d9b 8d3703             	STA savemo		; 
-  1076  0d9e 60                 	RTS
-  1077                          
-  1078  0d9f 8a                 +	TXA
-  1079  0da0 4d3703             	EOR savemo		; put A's bit 0-3 into savemo
-  1080  0da3 290f               	AND #$0F
-  1081  0da5 4d3703             	EOR savemo
-  1082  0da8 8d3703             	STA savemo
-  1083                          setmode_enter
-  1084  0dab e001               	CPX #$01
-  1085  0dad b01a                       BCS set_or_toggle
-  1086                          
-  1087                          modereset
-  1088  0daf a909                       LDA #>(nbitmask)
-  1089  0db1 8df103                     STA gchange_op+2
-  1090  0db4 a909                       LDA #<(nbitmask)
-  1091  0db6 8df003                     STA gchange_op+1
-  1092  0db9 a93d                       LDA #$3D		; AND abs,X
-  1093  0dbb 8def03                     STA gchange_op
-  1094  0dbe a931                       LDA #$31		; AND (zp),Y
-  1095  0dc0 8df703                     STA gmask_op
-  1096  0dc3 a9ff                       LDA #$FF		; EOR $#FF, invertieren
-  1097  0dc5 8df603                     STA gmask_flip+1
-  1098  0dc8 60                         RTS
-  1099                          
-  1100                          set_or_toggle
-  1101  0dc9 d01a                       BNE modetoggle
-  1102                          modeset
-  1103  0dcb a909                       LDA #>(bitmask)
-  1104  0dcd 8df103                     STA gchange_op+2
-  1105  0dd0 a901                       LDA #<(bitmask)
-  1106  0dd2 8df003                     STA gchange_op+1
-  1107  0dd5 a91d                       LDA #$1D		; OR abs,X
-  1108  0dd7 8def03                     STA gchange_op
-  1109  0dda a911                       LDA #$11		; OR (zp),Y
-  1110  0ddc 8df703                     STA gmask_op
-  1111  0ddf a900                       LDA #$00		; EOR #$00, nicht invertieren
-  1112  0de1 8df603                     STA gmask_flip+1
-  1113  0de4 60                         RTS
-  1114                          
-  1115                          modetoggle
-  1116  0de5 a909                       LDA #>(bitmask)
-  1117  0de7 8df103                     STA gchange_op+2
-  1118  0dea a901                       LDA #<(bitmask)
-  1119  0dec 8df003                     STA gchange_op+1
-  1120  0def a95d                       LDA #$5D		; EOR abs,X
-  1121  0df1 8def03                     STA gchange_op
-  1122  0df4 a951                       LDA #$51		; EOR (zp),Y
-  1123  0df6 8df703                     STA gmask_op
-  1124  0df9 a900                       LDA #$00		; EOR #$00, nicht invertieren
-  1125  0dfb 8df603                     STA gmask_flip+1
-  1126  0dfe 60                         RTS
-  1127                          
-  1128                          
-  1129                          ;-----------------------------------------------------------------
-  1130                          
-  1131                          ; get pixel (check if pixel set)
-  1132                          ; not used
-  1133                          
-  1134                          get
-  1135  0dff 204c0b                     JSR getcommaxy
-  1136  0e02 859c                       STA xh
-  1137  0e04 849b                       STY xl
-  1138  0e06 86aa                       STX y
-  1139                          
-  1140  0e08 20f909                     JSR position
-  1141                          
-  1142  0e0b a501                       LDA prozport
-  1143  0e0d 29fd               	AND #%11111101	; Kernal ROM disable
-  1144  0e0f 78                         SEI
-  1145  0e10 8501                       STA prozport
-  1146                          
-  1147  0e12 b1a5                       LDA (gaddr),Y
-  1148  0e14 3d0109                     AND bitmask,X
-  1149  0e17 a8                         TAY
-  1150  0e18 a501                       LDA prozport
-  1151  0e1a 0902               	ORA #%00000010	; kernal ROM enable
-  1152  0e1c 8501                       STA prozport
-  1153  0e1e 58                         CLI
-  1154  0e1f 4ca2b3                     JMP b_byte2fac
-  1155                          
-  1156                          
-  1157                          ;-----------------------------------------------------------------
+   910  0c7b a5a3               	LDA ycount	; finished
+   911  0c7d d003               	BNE +
+   912  0c7f 4cda09                     JMP gexit	; leave
+   913                          
+   914  0c82 18                 +	CLC
+   915  0c83 a5fb               	LDA sgaddr
+   916  0c85 6940               	ADC #$40	; next 8-pixel row
+   917  0c87 85fb               	STA sgaddr	; + $140 (320)
+   918  0c89 85a5               	STA gaddr
+   919  0c8b a5fc               	LDA sgaddr+1
+   920  0c8d 6901               	ADC #$01
+   921  0c8f 85fc               	STA sgaddr+1
+   922  0c91 85a6               	STA gaddr+1
+   923  0c93 a6fd               	LDX xsave
+   924  0c95 a000               	LDY #0
+   925  0c97 84a9               	STY ysave
+   926  0c99 f098               	BEQ hl_vertloop
+   927                          ;-----------------------------------------------------------------
+   928                          
+   929                          vline
+   930  0c9b 20690b                     JSR getxy	; get startpoint
+   931  0c9e 859c                       STA xh
+   932  0ca0 8d3503                     STA savexh	; save as cursor too
+   933  0ca3 849b                       STY xl
+   934  0ca5 8c3403                     STY savexl
+   935  0ca8 86aa                       STX y
+   936                          
+   937  0caa 20f1b7                     JSR b_getcomma8bit
+   938                          			; get length
+   939  0cad 18                         CLC		; calculate end point
+   940  0cae 8a                         TXA		; length
+   941                          ; DON'T-CHANGE: how long to go vertically (needed later)
+   942                          ;		DO NOT USE: tmp1 does not exist if called via vline_start!
+   943                          ;	STA tmp1
+   944  0caf 65aa                       ADC y		; length + y
+   945  0cb1 c9c8                       CMP #ymax	; outside?
+   946  0cb3 9003                       BCC +
+   947                          vline_iq
+   948  0cb5 20ea0d                     JSR range_error
+   949  0cb8 8593               +	STA yend	; endpoint
+   950                          
+   951  0cba 8d3603             	STA savey	; set cursor y position
+   952  0cbd 20e209                     JSR ginit	; map in graphic memory
+   953  0cc0 d012               	BNE vl_start	; ginit left with Z=0
+   954                          
+   955                          vline_start
+   956  0cc2 a593                       LDA yend
+   957  0cc4 c5aa                       CMP y
+   958  0cc6 b00a                       BCS vl_noyswap	; yend < y ->
+   959  0cc8 a5aa                       LDA y		; swap y, yend
+   960  0cca a693                       LDX yend
+   961  0ccc 8593                       STA yend
+   962  0cce 86aa                       STX y
+   963  0cd0 f002               	BEQ vl_start	; always (with next branch)
+   964                          	; fall through if yend is
+   965                          vl_noyswap
+   966  0cd2 d000                       BNE vl_start	; yend > y
+   967                          ;	JMP plot_start	; y = yend -> single point
+   968                          ;	JMP gexit	; no point
+   969                          
+   970                          vl_start
+   971  0cd4 20130a                     JSR position	; graphic position x,y
+   972  0cd7 bd0109                     LDA bitmask,X
+   973  0cda 8596                       STA tmp2	; save mask
+   974                          ; DON'T-CHANGE: replace ...
+   975  0cdc 38                         SEC
+   976  0cdd a593                       LDA yend
+   977  0cdf e5aa                       SBC y		; vertical length
+   978  0ce1 aa                         TAX
+   979                          ; DON'T-CHANGE: replacy by ... (already as parameter, from tmp1)
+   980                          ;		DO NOT USE: tmp1 does not exist if called via vline_start!
+   981                          ;	LDX tmp1
+   982  0ce2 e8                         INX		; +1 (exit on 0)
+   983                          vl_nextline
+   984  0ce3 a596                       LDA tmp2
+   985  0ce5 200104                     JSR gmask	; modify 
+   986  0ce8 c8                         INY		; go down
+   987  0ce9 c008                       CPY #8		; 8-line wrap
+   988  0ceb d00e                       BNE +
+   989  0ced a5a5                       LDA gaddr	; gaddr += 320
+   990  0cef 693f               	ADC #$40-1	; compensate for C = 1
+   991  0cf1 85a5                       STA gaddr
+   992  0cf3 a5a6                       LDA gaddr+1
+   993  0cf5 6901                       ADC #$01
+   994  0cf7 85a6                       STA gaddr+1
+   995  0cf9 a000                       LDY #0		; wrap y offset
+   996  0cfb ca                 +	DEX		; all vertical positions done?
+   997  0cfc d0e5                       BNE vl_nextline
+   998  0cfe 4cda09                     JMP gexit	; leave
+   999                          
+  1000                          
+  1001                          ;-----------------------------------------------------------------
+  1002                          
+  1003                          line
+  1004  0d01 20690b                     JSR getxy	; get startpoint
+  1005  0d04 849b                       STY xl 
+  1006  0d06 859c                       STA xh
+  1007  0d08 86aa                       STX y
+  1008                          
+  1009  0d0a 20660b                     JSR getcommaxy	; get endpoint
+  1010                          line_start
+  1011  0d0d 8c3403                     STY savexl	; save as cursor position too
+  1012  0d10 849e                       STY xendl
+  1013  0d12 8d3503                     STA savexh
+  1014  0d15 859f                       STA xendh
+  1015  0d17 8e3603                     STX savey
+  1016  0d1a 8693                       STX yend
+  1017                          
+  1018  0d1c 20e209                     JSR ginit	; map in graphic memory
+  1019                          
+  1020  0d1f a000                       LDY #$00	; initialize to 0
+  1021  0d21 84a8                       STY ydir
+  1022  0d23 8495                       STY kl
+  1023  0d25 8496                       STY kh
+  1024                          
+  1025  0d27 38                         SEC
+  1026  0d28 a59e                       LDA xendl	; calculate dx
+  1027  0d2a e59b                       SBC xl
+  1028  0d2c 85ab                       STA dxl
+  1029  0d2e a59f                       LDA xendh
+  1030  0d30 e59c                       SBC xh
+  1031  0d32 85a7                       STA dxh
+  1032                          
+  1033  0d34 b025                       BCS li_xend_right
+  1034                          	; dx != 0
+  1035  0d36 98                         TYA		; negate dx
+  1036  0d37 38                         SEC		; dx = 0 - dx
+  1037  0d38 e5ab                       SBC dxl
+  1038  0d3a 85ab                       STA dxl
+  1039  0d3c 98                         TYA
+  1040  0d3d e5a7                       SBC dxh
+  1041  0d3f 85a7                       STA dxh
+  1042                          			; C=0 always, needed later
+  1043  0d41 a69b                       LDX xl		; swap x low
+  1044  0d43 a49e                       LDY xendl
+  1045  0d45 869e                       STX xendl
+  1046  0d47 849b                       STY xl
+  1047                          
+  1048  0d49 a69c                       LDX xh		; swap x high
+  1049  0d4b a49f                       LDY xendh
+  1050  0d4d 869f                       STX xendh
+  1051  0d4f 849c                       STY xh
+  1052                          
+  1053  0d51 a6aa                       LDX y		; swap y
+  1054  0d53 a493                       LDY yend
+  1055  0d55 8693                       STX yend
+  1056  0d57 84aa                       STY y
+  1057                          
+  1058  0d59 9009                       BCC li_x_different
+  1059                          			; C=0 always (from negation before)
+  1060                          
+  1061                          li_xend_right
+  1062  0d5b a5ab                       LDA dxl		; dx = 0?
+  1063  0d5d 05a7                       ORA dxh
+  1064  0d5f d003                       BNE li_x_different
+  1065  0d61 4cc20c                     JMP vline_start	; vertical line case
+  1066                          
+  1067                          li_x_different
+  1068  0d64 38                         SEC		; calculate dy
+  1069  0d65 a593                       LDA yend
+  1070  0d67 e5aa                       SBC y
+  1071  0d69 b006                       BCS li_y_right
+  1072  0d6b 49ff                       EOR #$FF	; negate dy (two's complement)
+  1073  0d6d 6901                       ADC #$01	; C=0
+  1074  0d6f 85a8                       STA ydir	; flag y goes up
+  1075                          
+  1076                          li_y_right
+  1077  0d71 85a9                       STA dy
+  1078  0d73 d007                       BNE +
+  1079  0d75 a900               	LDA #0
+  1080  0d77 85a3               	STA ycount
+  1081  0d79 4ce90b                     JMP hline_start	; horizontal line case
+  1082                          +
+  1083                          	; dx and dy is *always* !=0, otherwise hline or vline got called.
+  1084                          
+  1085  0d7c a5a7                       LDA dxh		; dx > dy
+  1086  0d7e d017                       BNE line_flat	; yes -> flat
+  1087  0d80 a5a9                       LDA dy		; no -> steep
+  1088  0d82 aa                         TAX
+  1089  0d83 c5ab                       CMP dxl
+  1090  0d85 9010                       BCC line_flat
+  1091                          
+  1092                          line_steep
+  1093  0d87 e8                         INX	
+  1094  0d88 86a3                       STX cl		; c = dy+1
+  1095  0d8a 4a                         LSR		; k = dy/2
+  1096  0d8b 8595                       STA kl
+  1097  0d8d a5a8                       LDA ydir
+  1098  0d8f d003                       BNE +
+  1099  0d91 4c240b                     JMP line_down_steep	; y down, steep
+  1100  0d94 4c380a             +	JMP line_up_steep	; y up, steep
+  1101                          
+  1102                          line_flat
+  1103  0d97 a5a7                       LDA dxh
+  1104  0d99 a8                         TAY
+  1105  0d9a a6ab                       LDX dxl
+  1106  0d9c e8                         INX
+  1107  0d9d d001                       BNE +
+  1108  0d9f c8                         INY
+  1109  0da0 86a3               +	STX cl		; c = dx+1
+  1110  0da2 84a4                       STY ch
+  1111                          
+  1112  0da4 4a                         LSR		; k = dx/2
+  1113  0da5 8596                       STA kh
+  1114  0da7 a5ab                       LDA dxl
+  1115  0da9 6a                         ROR		; dx/2
+  1116  0daa 8595                       STA kl
+  1117  0dac a5a8                       LDA ydir	
+  1118  0dae d003                       BNE +
+  1119  0db0 4cce0a                     JMP line_down_flat	; y down, flat
+  1120  0db3 4c790a             +	JMP line_up_flat	; y up, flat
+  1121                          
+  1122                          ;-----------------------------------------------------------------
+  1123                          
+  1124                          plot
+  1125  0db6 20690b                     JSR getxy	; get parameter
+  1126  0db9 859c                       STA xh		; save x/y
+  1127  0dbb 849b                       STY xl
+  1128  0dbd 86aa                       STX y
+  1129  0dbf 8d3503                     STA savexh	; and store as cursor
+  1130  0dc2 8c3403                     STY savexl
+  1131  0dc5 8e3603                     STX savey
+  1132                          
+  1133                          plot_start
+  1134  0dc8 20130a                     JSR position	; calculate graphical address
+  1135                          
+  1136  0dcb a501                       LDA prozport
+  1137  0dcd 29fd                       AND #%11111101	; Kernal ROM disable
+  1138  0dcf 78                         SEI			
+  1139  0dd0 8501                       STA prozport
+  1140                          
+  1141  0dd2 20ed03                     JSR gchange	; change graphical data
+  1142                          
+  1143  0dd5 a501                       LDA prozport
+  1144  0dd7 0902                       ORA #%00000010	; kernal ROM enable
+  1145  0dd9 8501                       STA prozport
+  1146  0ddb 58                         CLI
+  1147  0ddc 60                         RTS
+  1148                          
+  1149                          ;-----------------------------------------------------------------
+  1150                          
+  1151                          move
+  1152  0ddd 20690b                     JSR getxy	; get parameter
+  1153  0de0 8d3503                     STA savexh	; just save as cursor
+  1154  0de3 8c3403                     STY savexl
+  1155  0de6 8e3603                     STX savey
+  1156  0de9 60                         RTS
+  1157                          
   1158                          
-  1159                          relto
-  1160  0e22 208aad                     JSR b_getval	; get X offset (+/-)
-  1161  0e25 a561               	LDA facexp	; FAC exponent
-  1162  0e27 c990               	CMP #$90	; more than 16 bit
-  1163  0e29 b031               	BCS relto_error	; illegal quantity
-  1164  0e2b 209bbc                     JSR b_fac2int	; to signed integer
-  1165                          
-  1166  0e2e 18                         CLC
-  1167  0e2f a565                       LDA facintl
-  1168  0e31 6d3403                     ADC savexl
-  1169  0e34 859e                       STA xendl
-  1170  0e36 a564                       LDA facinth
-  1171  0e38 6d3503                     ADC savexh
-  1172  0e3b 859f                       STA xendh	; xend = savex+facint
-  1173                          
-  1174  0e3d 20fdae                     JSR b_getcomma	; get Y offset (+/-)
-  1175  0e40 208aad                     JSR b_getval
-  1176  0e43 a561                       LDA facexp	; FAC exponent
-  1177  0e45 c990                       CMP #$90	; more than 16 bit
-  1178  0e47 b013                       BCS relto_error	; illegal quantity
-  1179  0e49 209bbc                     JSR b_fac2int	; to signed integer
-  1180  0e4c 18                         CLC
-  1181  0e4d a565                       LDA facintl
-  1182  0e4f 6d3603                     ADC savey
-  1183  0e52 8593                       STA yend	; yend = savey+facint
-  1184                          
-  1185  0e54 a59f                       LDA xendh	; check end coord. x
-  1186  0e56 c901                       CMP #>xmax
-  1187  0e58 900b                       BCC rt_xok
-  1188  0e5a f003                       BEQ +
-  1189                          relto_error
-  1190  0e5c 20730d                     JSR range_error
-  1191  0e5f a59e               +	LDA xendl
-  1192  0e61 c940                       CMP #<xmax
-  1193  0e63 b0f7                       BCS relto_error
-  1194                          rt_xok
-  1195  0e65 a593                       LDA yend	; check end coord. y
-  1196  0e67 c9c8                       CMP #ymax
-  1197  0e69 b0f1                       BCS relto_error
-  1198                          
-  1199  0e6b ad3403                     LDA savexl
-  1200  0e6e 859b                       STA xl
-  1201  0e70 ad3503                     LDA savexh
-  1202  0e73 859c                       STA xh
-  1203  0e75 ad3603                     LDA savey
-  1204  0e78 85aa                       STA y
-  1205  0e7a a49e                       LDY xendl
-  1206  0e7c a59f                       LDA xendh
-  1207  0e7e a693                       LDX yend	; xend/yend = cursor + x/y
-  1208                          
-  1209  0e80 4c9a0c                     JMP line_start	; draw line x/y to xend/yend
-  1210                          
-  1211                          
-  1212                          ;-----------------------------------------------------------------
-  1213                          
-  1214                          char
-  1215  0e83 209eb7                     JSR b_get8bit	; get char. position x 0-39
-  1216  0e86 e028                       CPX #40	
-  1217  0e88 9003                       BCC +
-  1218                          char_error
-  1219  0e8a 4c48b2                     JMP b_illquant
-  1220  0e8d 86fb               +	STX gpos	; save x coord.
-  1221  0e8f 20f1b7                     JSR b_getcomma8bit
-  1222                          			; get char. position y 0-24
-  1223  0e92 e019                       CPX #25
-  1224  0e94 b0f4                       BCS char_error
-  1225  0e96 86fc                       STX gpos+1	; save y coord.
-  1226                          
-  1227  0e98 20fdae                     JSR b_getcomma	; get string
-  1228  0e9b 209ead                     JSR b_getexpr
-  1229  0e9e 20a3b6                     JSR b_stringval ; string address in str
-  1230  0ea1 48                         PHA		; string length
-  1231  0ea2 a6fc                       LDX gpos+1	; y coord. for char. position
-  1232  0ea4 8a                         TXA
-  1233  0ea5 2903                       AND #$03	; mask 2 bits
-  1234  0ea7 a8                         TAY		; table index
-  1235  0ea8 a900                       LDA #$00
-  1236  0eaa 85fc                       STA gpos+1	; x high
-  1237  0eac a5fb                       LDA gpos	; saved x: multiply by 8
-  1238  0eae 0a                         ASL
-  1239  0eaf 0a                         ASL
-  1240  0eb0 0a                         ASL
-  1241  0eb1 26fc                       ROL gpos+1	; overflow to high byte
-  1242  0eb3 791109                     ADC ytabl,Y
-  1243  0eb6 85a5                       STA gaddr
-  1244  0eb8 a5fc                       LDA gpos+1	; x high
-  1245  0eba 7d1509                     ADC ytabh,X
-  1246  0ebd 85a6                       STA gaddr+1
-  1247  0ebf 68                         PLA		; string length
-  1248  0ec0 a000                       LDY #$00	; string index
-  1249  0ec2 aa                         TAX		; length
-  1250  0ec3 e8                         INX		; prepare as counter
-  1251                          char_loop
-  1252  0ec4 ca                         DEX
-  1253  0ec5 f008                       BEQ char_exit
-  1254  0ec7 b122                       LDA (str),Y	; read string
-  1255  0ec9 20d00e                     JSR char_display
-  1256  0ecc c8                         INY
-  1257  0ecd d0f5                       BNE char_loop
-  1258                          char_exit
-  1259  0ecf 60                         RTS
+  1159                          ;-----------------------------------------------------------------
+  1160                          
+  1161                          ; never touch X, Y
+  1162                          range_error
+  1163  0dea ad3703             	LDA savemo
+  1164  0ded 29f0               	AND #$F0
+  1165  0def d003               	BNE +
+  1166  0df1 68                 	PLA			; cleanup JSR
+  1167  0df2 68                 	PLA
+  1168  0df3 60                 -	RTS			; error mode 0: do nothing, back to caller before
+  1169                          				; error mode 2: cut value: control back
+  1170                          				; to handle value correction
+  1171  0df4 2920               +	AND #$20
+  1172  0df6 d0fb               	BNE -
+  1173  0df8 68                 	PLA			; cleanup JSR
+  1174  0df9 68                 	PLA
+  1175                          setmode_error
+  1176  0dfa 4c48b2             	JMP b_illquant		; error mode 1: throw error message
+  1177                          
+  1178                          ;-----------------------------------------------------------------
+  1179                          
+  1180                          setmode
+  1181  0dfd 209eb7                     JSR b_get8bit
+  1182  0e00 e003                       CPX #3
+  1183  0e02 9013                       BCC +			; less then 3, modification mode
+  1184  0e04 e006               	CPX #6
+  1185  0e06 b0f2               	BCS setmode_error	; out of range
+  1186                          				; error mode
+  1187  0e08 8a                 	TXA
+  1188  0e09 690d               	ADC #13			; C=0, therefore -3
+  1189                          				; 3-5 -> 16-18
+  1190                          				; put A's bit 4-7 into savemo
+  1191  0e0b 4d3703             	EOR savemo		; ********
+  1192  0e0e 29f0               	AND #$F0		; ****0000
+  1193  0e10 4d3703             	EOR savemo		; AAAAmmmm
+  1194  0e13 8d3703             	STA savemo		; 
+  1195  0e16 60                 	RTS
+  1196                          
+  1197  0e17 8a                 +	TXA
+  1198  0e18 4d3703             	EOR savemo		; put A's bit 0-3 into savemo
+  1199  0e1b 290f               	AND #$0F
+  1200  0e1d 4d3703             	EOR savemo
+  1201  0e20 8d3703             	STA savemo
+  1202                          setmode_enter
+  1203  0e23 e001               	CPX #$01
+  1204  0e25 b01a                       BCS set_or_toggle
+  1205                          
+  1206                          modereset
+  1207  0e27 a909                       LDA #>(nbitmask)
+  1208  0e29 8df703                     STA gchange_op+2
+  1209  0e2c a909                       LDA #<(nbitmask)
+  1210  0e2e 8df603                     STA gchange_op+1
+  1211  0e31 a93d                       LDA #$3D		; AND abs,X
+  1212  0e33 8df503                     STA gchange_op
+  1213  0e36 a931                       LDA #$31		; AND (zp),Y
+  1214  0e38 8d0b04                     STA gmask_op
+  1215  0e3b a9ff                       LDA #$FF		; EOR $#FF, invertieren
+  1216  0e3d 8d0a04                     STA gmask_flip+1
+  1217  0e40 60                         RTS
+  1218                          
+  1219                          set_or_toggle
+  1220  0e41 d01a                       BNE modetoggle
+  1221                          modeset
+  1222  0e43 a909                       LDA #>(bitmask)
+  1223  0e45 8df703                     STA gchange_op+2
+  1224  0e48 a901                       LDA #<(bitmask)
+  1225  0e4a 8df603                     STA gchange_op+1
+  1226  0e4d a91d                       LDA #$1D		; OR abs,X
+  1227  0e4f 8df503                     STA gchange_op
+  1228  0e52 a911                       LDA #$11		; OR (zp),Y
+  1229  0e54 8d0b04                     STA gmask_op
+  1230  0e57 a900                       LDA #$00		; EOR #$00, nicht invertieren
+  1231  0e59 8d0a04                     STA gmask_flip+1
+  1232  0e5c 60                         RTS
+  1233                          
+  1234                          modetoggle
+  1235  0e5d a909                       LDA #>(bitmask)
+  1236  0e5f 8df703                     STA gchange_op+2
+  1237  0e62 a901                       LDA #<(bitmask)
+  1238  0e64 8df603                     STA gchange_op+1
+  1239  0e67 a95d                       LDA #$5D		; EOR abs,X
+  1240  0e69 8df503                     STA gchange_op
+  1241  0e6c a951                       LDA #$51		; EOR (zp),Y
+  1242  0e6e 8d0b04                     STA gmask_op
+  1243  0e71 a900                       LDA #$00		; EOR #$00, nicht invertieren
+  1244  0e73 8d0a04                     STA gmask_flip+1
+  1245  0e76 60                         RTS
+  1246                          
+  1247                          
+  1248                          ;-----------------------------------------------------------------
+  1249                          
+  1250                          ; get pixel (check if pixel set)
+  1251                          ; not used
+  1252                          
+  1253                          get
+  1254  0e77 20660b                     JSR getcommaxy
+  1255  0e7a 859c                       STA xh
+  1256  0e7c 849b                       STY xl
+  1257  0e7e 86aa                       STX y
+  1258                          
+  1259  0e80 20130a                     JSR position
   1260                          
-  1261                          char_display
-  1262  0ed0 85d7                       STA z_tmp	; character (lastkey, temporary reused)
-  1263  0ed2 8a                         TXA		; save register X+Y
-  1264  0ed3 48                         PHA
-  1265  0ed4 98                         TYA
-  1266  0ed5 48                         PHA
-  1267  0ed6 a5d7                       LDA z_tmp	; get saved character
-  1268  0ed8 3012                       BMI char_inverse
-  1269                          
-  1270                          char_normal
-  1271  0eda c920                       CMP #$20	; control character?
-  1272  0edc 9054                       BCC char_disp_leave
-  1273  0ede c960                       CMP #$60
-  1274  0ee0 9004                       BCC +
-  1275  0ee2 29df                       AND #%11011111	; $60-$7F -> $40-$5F
-  1276  0ee4 d014                       BNE char_hires
-  1277  0ee6 293f               +	AND #%00111111  ; $40-$5F -> $00-$1F
-  1278  0ee8 d010               	BNE char_hires
-  1279  0eea f00e               	BEQ char_hires
-  1280                          
-  1281                          char_inverse
-  1282  0eec 297f                       AND #%01111111	; mask bit 7
-  1283  0eee c97f                       CMP #%01111111	; was 255? (pi)
-  1284  0ef0 d002                       BNE +
-  1285  0ef2 a95e                       LDA #$5E	; screen code for pi
-  1286  0ef4 c920               +	CMP #$20	; control character?
-  1287  0ef6 903a                       BCC char_disp_leave
-  1288                          			; yes, skip
-  1289  0ef8 0940                       ORA #%01000000	; $A0-$BF -> $60-$7F
-  1290                          			; $C0-$FF -> $40-$7F
-  1291                          			; OPT: BNE char_hires
-  1292                          			; OPT: char_normal
-  1293                          char_hires
-  1294  0efa a6c7                       LDX z_reverseflag
-  1295  0efc f002                       BEQ +
-  1296  0efe 0980                       ORA #%10000000	; invert char.
-  1297  0f00 aa                 +	TAX		; save char. for later
-  1298  0f01 a501                       LDA prozport	; save prozport state
-  1299  0f03 48                 	PHA
-  1300  0f04 a921                       LDA #$21	; char. rom, no basic and kernal rom
-  1301  0f06 78                         SEI
-  1302  0f07 8501                       STA prozport	; char. rom base = $D000
-  1303  0f09 a91a                       LDA #($D0 >> 3)	; $D0/8   1101 0000 -> 0001 1010
-  1304  0f0b 85fc                       STA gpos+1	; 
-  1305  0f0d 8a                         TXA		; char. code
-  1306  0f0e 0a                         ASL		; *8
-  1307  0f0f 26fc                       ROL gpos+1
-  1308  0f11 0a                         ASL
-  1309  0f12 26fc                       ROL gpos+1
-  1310  0f14 0a                         ASL
-  1311  0f15 26fc                       ROL gpos+1
-  1312  0f17 85fb                       STA gpos	; addr. in char. rom for char.
-  1313                          
-  1314  0f19 a007                       LDY #$07	; 8 hires lines
-  1315                          char_line
-  1316  0f1b b1fb                       LDA (gpos),Y	; read character line
-  1317  0f1d 20f503                     JSR gmask	; write to hires screen
-  1318  0f20 88                         DEY
-  1319  0f21 10f8                       BPL char_line
-  1320                          
-  1321  0f23 68                 	PLA
-  1322  0f24 8501                       STA prozport
-  1323  0f26 58                         CLI
-  1324                          
-  1325  0f27 18                         CLC		; step char position to left
-  1326  0f28 a5a5                       LDA gaddr	; ( +8 )
-  1327  0f2a 6908                       ADC #$08
-  1328  0f2c 85a5                       STA gaddr
-  1329  0f2e 9002                       BCC +
-  1330  0f30 e6a6                       INC gaddr+1
-  1331                          +
-  1332                          char_disp_leave
-  1333  0f32 68                 	PLA		; pass written character back
-  1334  0f33 a8                         TAY		; restore saved registers
-  1335  0f34 68                         PLA
-  1336  0f35 aa                         TAX
-  1337  0f36 60                         RTS
-  1338                          
-  1339                          
-  1340                          ;-----------------------------------------------------------------
-  1341                          
-  1342                          to
-  1343  0f37 ad3403                     LDA savexl
-  1344  0f3a 859b                       STA xl
-  1345  0f3c ad3503                     LDA savexh
-  1346  0f3f 859c                       STA xh
-  1347  0f41 ad3603                     LDA savey
-  1348  0f44 85aa                       STA y
-  1349  0f46 204f0b                     JSR getxy
-  1350  0f49 4c9a0c                     JMP line_start
-  1351                          
-  1352                          ;-----------------------------------------------------------------
-  1353                          
-  1354                          unnew
-  1355                          
-  1356  0f4c a52b               	lda bassta
-  1357  0f4e 8522               	sta str
-  1358  0f50 a52c               	lda bassta+1
-  1359  0f52 8523               	sta str+1
-  1360  0f54 a001               	ldy #1
-  1361  0f56 98                 	tya
-  1362  0f57 9122               	sta (str),y		; != 0
-  1363                          
-  1364  0f59 2033a5             	jsr b_rechain		; starting from bassta
-  1365                          				; result in (str)
-  1366  0f5c 18                 	clc			; str+1 -> new basic end
-  1367  0f5d a423               	ldy str+1
-  1368  0f5f a522               	lda str
-  1369  0f61 6902               	adc #2
-  1370  0f63 852d               	sta basend
-  1371  0f65 9001               	bcc +
-  1372  0f67 c8                 	iny
-  1373  0f68 842e               +	sty basend+1
-  1374  0f6a 4c60a6             	jmp b_clr		; perform CLR
-  1375                          
-  1376                          ;-----------------------------------------------------------------
-  1377                          graext_end
+  1261  0e83 a501                       LDA prozport
+  1262  0e85 29fd               	AND #%11111101	; Kernal ROM disable
+  1263  0e87 78                         SEI
+  1264  0e88 8501                       STA prozport
+  1265                          
+  1266  0e8a b1a5                       LDA (gaddr),Y
+  1267  0e8c 3d0109                     AND bitmask,X
+  1268  0e8f a8                         TAY
+  1269  0e90 a501                       LDA prozport
+  1270  0e92 0902               	ORA #%00000010	; kernal ROM enable
+  1271  0e94 8501                       STA prozport
+  1272  0e96 58                         CLI
+  1273  0e97 4ca2b3                     JMP b_byte2fac
+  1274                          
+  1275                          
+  1276                          ;-----------------------------------------------------------------
+  1277                          
+  1278                          relto
+  1279  0e9a 208aad                     JSR b_getval	; get X offset (+/-)
+  1280  0e9d a561               	LDA facexp	; FAC exponent
+  1281  0e9f c990               	CMP #$90	; more than 16 bit
+  1282  0ea1 b031               	BCS relto_error	; illegal quantity
+  1283  0ea3 209bbc                     JSR b_fac2int	; to signed integer
+  1284                          
+  1285  0ea6 18                         CLC
+  1286  0ea7 a565                       LDA facintl
+  1287  0ea9 6d3403                     ADC savexl
+  1288  0eac 859e                       STA xendl
+  1289  0eae a564                       LDA facinth
+  1290  0eb0 6d3503                     ADC savexh
+  1291  0eb3 859f                       STA xendh	; xend = savex+facint
+  1292                          
+  1293  0eb5 20fdae                     JSR b_getcomma	; get Y offset (+/-)
+  1294  0eb8 208aad                     JSR b_getval
+  1295  0ebb a561                       LDA facexp	; FAC exponent
+  1296  0ebd c990                       CMP #$90	; more than 16 bit
+  1297  0ebf b013                       BCS relto_error	; illegal quantity
+  1298  0ec1 209bbc                     JSR b_fac2int	; to signed integer
+  1299  0ec4 18                         CLC
+  1300  0ec5 a565                       LDA facintl
+  1301  0ec7 6d3603                     ADC savey
+  1302  0eca 8593                       STA yend	; yend = savey+facint
+  1303                          
+  1304  0ecc a59f                       LDA xendh	; check end coord. x
+  1305  0ece c901                       CMP #>xmax
+  1306  0ed0 900e                       BCC rt_xok
+  1307  0ed2 f003                       BEQ +
+  1308                          relto_error
+  1309  0ed4 20ea0d                     JSR range_error
+  1310  0ed7 a59e               +	LDA xendl
+  1311  0ed9 c940                       CMP #<xmax
+  1312  0edb 9003                       BCC +
+  1313  0edd 20ea0d                     JSR range_error
+  1314                          +
+  1315                          rt_xok
+  1316  0ee0 a593                       LDA yend	; check end coord. y
+  1317  0ee2 c9c8                       CMP #ymax
+  1318  0ee4 9003                       BCC +
+  1319  0ee6 20ea0d                     JSR range_error
+  1320                          +
+  1321  0ee9 ad3403                     LDA savexl
+  1322  0eec 859b                       STA xl
+  1323  0eee ad3503                     LDA savexh
+  1324  0ef1 859c                       STA xh
+  1325  0ef3 ad3603                     LDA savey
+  1326  0ef6 85aa                       STA y
+  1327  0ef8 a49e                       LDY xendl
+  1328  0efa a59f                       LDA xendh
+  1329  0efc a693                       LDX yend	; xend/yend = cursor + x/y
+  1330                          
+  1331  0efe 4c0d0d                     JMP line_start	; draw line x/y to xend/yend
+  1332                          
+  1333                          
+  1334                          ;-----------------------------------------------------------------
+  1335                          
+  1336                          char
+  1337  0f01 209eb7                     JSR b_get8bit	; get char. position x 0-39
+  1338  0f04 e028                       CPX #40	
+  1339  0f06 9003                       BCC +
+  1340                          char_error
+  1341  0f08 4c48b2                     JMP b_illquant
+  1342  0f0b 86fb               +	STX gpos	; save x coord.
+  1343  0f0d 20f1b7                     JSR b_getcomma8bit
+  1344                          			; get char. position y 0-24
+  1345  0f10 e019                       CPX #25
+  1346  0f12 b0f4                       BCS char_error
+  1347  0f14 86fc                       STX gpos+1	; save y coord.
+  1348                          
+  1349  0f16 20fdae                     JSR b_getcomma	; get string
+  1350  0f19 209ead                     JSR b_getexpr
+  1351  0f1c 20a3b6                     JSR b_stringval ; string address in str
+  1352  0f1f 48                         PHA		; string length
+  1353  0f20 a6fc                       LDX gpos+1	; y coord. for char. position
+  1354  0f22 8a                         TXA
+  1355  0f23 2903                       AND #$03	; mask 2 bits
+  1356  0f25 a8                         TAY		; table index
+  1357  0f26 a900                       LDA #$00
+  1358  0f28 85fc                       STA gpos+1	; x high
+  1359  0f2a a5fb                       LDA gpos	; saved x: multiply by 8
+  1360  0f2c 0a                         ASL
+  1361  0f2d 0a                         ASL
+  1362  0f2e 0a                         ASL
+  1363  0f2f 26fc                       ROL gpos+1	; overflow to high byte
+  1364  0f31 791109                     ADC ytabl,Y
+  1365  0f34 85a5                       STA gaddr
+  1366  0f36 a5fc                       LDA gpos+1	; x high
+  1367  0f38 7d1509                     ADC ytabh,X
+  1368  0f3b 85a6                       STA gaddr+1
+  1369  0f3d 68                         PLA		; string length
+  1370  0f3e a000                       LDY #$00	; string index
+  1371  0f40 aa                         TAX		; length
+  1372  0f41 e8                         INX		; prepare as counter
+  1373                          char_loop
+  1374  0f42 ca                         DEX
+  1375  0f43 f008                       BEQ char_exit
+  1376  0f45 b122                       LDA (str),Y	; read string
+  1377  0f47 204e0f                     JSR char_display
+  1378  0f4a c8                         INY
+  1379  0f4b d0f5                       BNE char_loop
+  1380                          char_exit
+  1381  0f4d 60                         RTS
+  1382                          
+  1383                          char_display
+  1384  0f4e 85d7                       STA z_tmp	; character (lastkey, temporary reused)
+  1385  0f50 8a                         TXA		; save register X+Y
+  1386  0f51 48                         PHA
+  1387  0f52 98                         TYA
+  1388  0f53 48                         PHA
+  1389  0f54 a5d7                       LDA z_tmp	; get saved character
+  1390  0f56 3012                       BMI char_inverse
+  1391                          
+  1392                          char_normal
+  1393  0f58 c920                       CMP #$20	; control character?
+  1394  0f5a 9054                       BCC char_disp_leave
+  1395  0f5c c960                       CMP #$60
+  1396  0f5e 9004                       BCC +
+  1397  0f60 29df                       AND #%11011111	; $60-$7F -> $40-$5F
+  1398  0f62 d014                       BNE char_hires
+  1399  0f64 293f               +	AND #%00111111  ; $40-$5F -> $00-$1F
+  1400  0f66 d010               	BNE char_hires
+  1401  0f68 f00e               	BEQ char_hires
+  1402                          
+  1403                          char_inverse
+  1404  0f6a 297f                       AND #%01111111	; mask bit 7
+  1405  0f6c c97f                       CMP #%01111111	; was 255? (pi)
+  1406  0f6e d002                       BNE +
+  1407  0f70 a95e                       LDA #$5E	; screen code for pi
+  1408  0f72 c920               +	CMP #$20	; control character?
+  1409  0f74 903a                       BCC char_disp_leave
+  1410                          			; yes, skip
+  1411  0f76 0940                       ORA #%01000000	; $A0-$BF -> $60-$7F
+  1412                          			; $C0-$FF -> $40-$7F
+  1413                          			; OPT: BNE char_hires
+  1414                          			; OPT: char_normal
+  1415                          char_hires
+  1416  0f78 a6c7                       LDX z_reverseflag
+  1417  0f7a f002                       BEQ +
+  1418  0f7c 0980                       ORA #%10000000	; invert char.
+  1419  0f7e aa                 +	TAX		; save char. for later
+  1420  0f7f a501                       LDA prozport	; save prozport state
+  1421  0f81 48                 	PHA
+  1422  0f82 a921                       LDA #$21	; char. rom, no basic and kernal rom
+  1423  0f84 78                         SEI
+  1424  0f85 8501                       STA prozport	; char. rom base = $D000
+  1425  0f87 a91a                       LDA #($D0 >> 3)	; $D0/8   1101 0000 -> 0001 1010
+  1426  0f89 85fc                       STA gpos+1	; 
+  1427  0f8b 8a                         TXA		; char. code
+  1428  0f8c 0a                         ASL		; *8
+  1429  0f8d 26fc                       ROL gpos+1
+  1430  0f8f 0a                         ASL
+  1431  0f90 26fc                       ROL gpos+1
+  1432  0f92 0a                         ASL
+  1433  0f93 26fc                       ROL gpos+1
+  1434  0f95 85fb                       STA gpos	; addr. in char. rom for char.
+  1435                          
+  1436  0f97 a007                       LDY #$07	; 8 hires lines
+  1437                          char_line
+  1438  0f99 b1fb                       LDA (gpos),Y	; read character line
+  1439  0f9b 200104                     JSR gmask	; write to hires screen
+  1440  0f9e 88                         DEY
+  1441  0f9f 10f8                       BPL char_line
+  1442                          
+  1443  0fa1 68                 	PLA
+  1444  0fa2 8501                       STA prozport
+  1445  0fa4 58                         CLI
+  1446                          
+  1447  0fa5 18                         CLC		; step char position to left
+  1448  0fa6 a5a5                       LDA gaddr	; ( +8 )
+  1449  0fa8 6908                       ADC #$08
+  1450  0faa 85a5                       STA gaddr
+  1451  0fac 9002                       BCC +
+  1452  0fae e6a6                       INC gaddr+1
+  1453                          +
+  1454                          char_disp_leave
+  1455  0fb0 68                 	PLA		; pass written character back
+  1456  0fb1 a8                         TAY		; restore saved registers
+  1457  0fb2 68                         PLA
+  1458  0fb3 aa                         TAX
+  1459  0fb4 60                         RTS
+  1460                          
+  1461                          
+  1462                          ;-----------------------------------------------------------------
+  1463                          
+  1464                          to
+  1465  0fb5 ad3403                     LDA savexl
+  1466  0fb8 859b                       STA xl
+  1467  0fba ad3503                     LDA savexh
+  1468  0fbd 859c                       STA xh
+  1469  0fbf ad3603                     LDA savey
+  1470  0fc2 85aa                       STA y
+  1471  0fc4 20690b                     JSR getxy
+  1472  0fc7 4c0d0d                     JMP line_start
+  1473                          
+  1474                          ;-----------------------------------------------------------------
+  1475                          
+  1476                          unnew
+  1477                          
+  1478  0fca a52b               	lda bassta
+  1479  0fcc 8522               	sta str
+  1480  0fce a52c               	lda bassta+1
+  1481  0fd0 8523               	sta str+1
+  1482  0fd2 a001               	ldy #1
+  1483  0fd4 98                 	tya
+  1484  0fd5 9122               	sta (str),y		; != 0
+  1485                          
+  1486  0fd7 2033a5             	jsr b_rechain		; starting from bassta
+  1487                          				; result in (str)
+  1488  0fda 18                 	clc			; str+1 -> new basic end
+  1489  0fdb a423               	ldy str+1
+  1490  0fdd a522               	lda str
+  1491  0fdf 6902               	adc #2
+  1492  0fe1 852d               	sta basend
+  1493  0fe3 9001               	bcc +
+  1494  0fe5 c8                 	iny
+  1495  0fe6 842e               +	sty basend+1
+  1496  0fe8 4c60a6             	jmp b_clr		; perform CLR
+  1497                          
+  1498                          ;-----------------------------------------------------------------
+  1499                          graext_end
 
 ; ******** Source: ge-run.asm
     43                          

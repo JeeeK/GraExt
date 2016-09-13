@@ -8,6 +8,7 @@
 	cram_loop	= $c17e
 	plot_start	= $c5c4	; unused
 	ycount	= $a3
+	bank4+3	= $40000
 	gra_copycode	= $c1c4
 	parse_error	= $c0ae	; ?
 	ytabh	= $c111
@@ -20,15 +21,17 @@
 	b_fac2int	= $bc9b
 	move	= $c5d9	; ?
 	b_syntaxerror	= $af08
+	rombank+3	= $10000	; unused
 	cram	= $cc00
 	nostop	= $c07a	; ?
 	gpos	= $fb
 	gra_fill	= $c1ae
 	hl_start	= $c401	; unused
-	gramcode	= $3ed
-	gmask_op	= $40b
+	mc_off	= $80	; unused
+	gramcode	= $3d3
+	gmask_op	= $3f1
 	char_display	= $c74a	; ?
-	gchange_op	= $3f5
+	gchange_op	= $3db
 	line_down_flat	= $c2ca
 	gra_on	= $c18d	; ?
 	gcxy_xok	= $c37b	; ?
@@ -37,6 +40,7 @@
 	line_start	= $c509
 	error	= $c06b	; ?
 	li_xend_right	= $c557	; ?
+	ltc	= $1
 	b_getcomma8bit	= $b7f1
 	facintl	= $65
 	gromcode_end	= $c20f	; ?
@@ -51,7 +55,7 @@
 	hl_vertloop	= $c42f
 	xl	= $9b
 	b_clr	= $a660
-	gmask	= $401
+	gmask	= $3e7
 	xh	= $9c
 	to	= $c7b1	; ?
 	char_inverse	= $c766	; ?
@@ -63,12 +67,12 @@
 	position	= $c20f
 	gra_other	= $c154	; ?
 	basend	= $2d
-	gchange	= $3ed
+	gchange	= $3d3
 	b_stringval	= $b6a3
 	char_error	= $c704
 	parse	= $c07d	; ?
 	v_basstp	= $328
-	gmask_flip	= $409
+	gmask_flip	= $3ef
 	prozport	= $1
 	li_y_right	= $c56d	; ?
 	line_up_steep	= $c234
@@ -97,6 +101,7 @@
 	loop_xright_yup	= $c27e
 	bitmask	= $c0fd
 	range_error	= $c5e6	; ?
+	mc_epr	= $20
 	gramp	= $e0
 	maskright	= $c132
 	char_disp_leave	= $c7ac	; ?
@@ -104,8 +109,10 @@
 	relto_error	= $c6d0	; ?
 	interactive	= $c01b	; ?
 	gram	= $e000
+	memconf+3	= $40001
 	getcommaxy	= $c362
 	li_x_different	= $c560	; ?
+	mc_sim	= $10
 	stop	= $c071	; ?
 	char	= $c6fd	; ?
 	line_down_steep	= $c320
@@ -165,6 +172,7 @@
 	bassta	= $2b
 	set_or_toggle	= $c63d	; ?
 	xendl	= $9e
+	mc_slow	= $40	; unused
 	v_basexp	= $30a	; unused
 	xsave	= $fd
 	gcol	= $fd

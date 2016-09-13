@@ -2,7 +2,7 @@
 
 F=graext
 FRUN=ge-run
-
+FLTC=graext-c000-ltc
 
 .SUFFIXES: .prg .bas
 
@@ -14,14 +14,20 @@ FRUN=ge-run
 	bas2prg $<
 
 
-all: $(F).o $(FRUN).prg
+all: $(F).o $(FRUN).prg $(FLTC)
 
 
+# Binary für $c000, im PRG-Format
 $(F).o: $(F).asm $(F)-core.asm
 	acme -v3 -l $(F).l -r $(F).r $(F).asm 
 	rm -f graext-c000 ; ln graext.o graext-c000
 
 
+# Binary für LTC-Hardware, im Raw-Format
+$(FLTC): $(F).asm $(F)-core.asm
+	acme -v3 -Dltc=1 -l $(FLTC).l -r $(FLTC).r -o $(FLTC) $(F).asm 
+
+# Programm als PRG-Installer
 $(FRUN).prg: $(FRUN).asm $(F)-core.asm
 	acme -v3 -l $(FRUN).l -r $(FRUN).r $(FRUN).asm 
 	
@@ -44,12 +50,13 @@ tag:
 		mkdir -p $(TAG); \
 		cp -p Makefile graext-core.asm $(F).asm $(F).o $(F).r $(F).l $(TAG) ;\
 		cp -p $(FRUN).asm $(FRUN).prg $(FRUN).r $(FRUN).l $(TAG) ;\
+		cp -p $(FLTC) $(FLTC).r $(FLTC).l $(TAG) ;\
 	fi
 
 clean:
 	rm $(F).o
 
-x.d64 i: $(F).o $(FRUN).prg gliding-lines.prg debug.prg demo1.prg demo2.prg gliding-lines.prg
+x.d64 i: $(F).o $(FRUN).prg gliding-lines.prg debug.prg demo1.prg demo2.prg demo-h-v.prg gliding-lines.prg
 	cp -p $(F).o ge.prg
 	FILE2DISK x.d64
 

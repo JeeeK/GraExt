@@ -2,7 +2,11 @@
 ;
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
+!macro version {
+	!text "1.25" ; current version
+}
 ; revisions:
+;	2016-06-21 v 1.25
 ;	2016-06-16 v 1.24
 ;	2016-05-29 v 1.23
 ;	2016-05-20 v 1.22
@@ -109,17 +113,23 @@ dxl	= $AB		; x delta, low+high
 dxh	= $A7
 
 dy	= $A9		; y delta
+ysave	= dy		; y saved (hline context)
 
 ydir	= $A8		; y direction: 0 | !=0 ... down | up
+ylimit	= ydir		; y limit in a 8x8 block (hline context)
 
 cl	= $A3		; dot count, low+high
 ch	= $A4
+ycount	= cl		; y count overall (hline context)
+hcount	= ch		; horizontal blocks (hline context)
 
 gaddr	= $A5		; graphic address
 
 gpos	= $FB		; in graphic position
+sgaddr	= gpos		; saved gaddr, hline context
 
 gcol	= $FD		; graphic color, in "graphic on" context only
+xsave	= gcol		; X register save (hline context)
 
 
 ; static ram areas
@@ -131,8 +141,33 @@ savemo	= savey+1	; the graphic mode
 saveverr = savemo+1	; original v_baserr
 savevstp = saveverr+2	; original v_basstp
 
-gramcode = $03ed	; real place for gchange and gmask routines,
-			; they take 15 bytes
+			; real place for gchange and gmask routines,
+!ifdef ltc {
+gramcode = $03ed - 26	; 15 bytes + 4*6+2
+} else {
+gramcode = $03ed	; 15 bytes
+}
+
+; LTC64 specifics
+
+!ifdef ltc {
+
+!cpu 65816
+
+bank4+3 = $040000
+rombank+3 = $010000     ; c't
+
+; c't-Karte-Kontrollregister
+
+memconf = bank4 or 1
+mc_off  = $80                   ; CPU 816 ausschalten
+mc_slow = $40                   ; CPU 1 MHz
+mc_epr  = $20                   ; EPROM in Bank0
+mc_sim  = $10                   ; ROM-Simulation Bit
+
+}
+
+
 
 ;
 ; initialize extension
@@ -245,7 +280,9 @@ cmdaddr
         !word unnew-co,graphic-co,char-co,setmode-co,move-co,relto-co
         !word to-co,vline-co,hline-co,line-co,plot-co
 
-author	!text 147,"GRA-EXT V1.24 1986,2016 JOHANN@KLASEK.AT",0
+author	!text 147,"GRA-EXT V"
+	+version
+	!text " 1986,2016 JOHANN@KLASEK.AT",0
 
 bitmask
 	!byte $80, $40, $20, $10, $08, $04, $02, $01
@@ -387,6 +424,7 @@ ginit
         SEI		; disable interrupts
         STA prozport
         RTS
+			; on exit Z=0
 
 ;-----------------------------------------------------------------
 
@@ -401,20 +439,38 @@ gromcode
 ; change a graphic location
 
 gchange
+!ifdef ltc {
+	LDA #mc_epr		; Basic/Kernal-ROM-Simulation
+	STA memconf		; damit internes RAM gelesen werden kann!
+}
         LDA (gaddr),Y
 gchange_op
         ORA bitmask,X
         STA (gaddr),Y
+!ifdef ltc {
+	LDA #mc_sim		; vollständige ROM-Simulation
+	STA memconf		; wieder schnelles RAM ab $C000
+}
         RTS
 
 ; mask a graphic location 
 
 gmask
+!ifdef ltc {
+	XBA
+	LDA #mc_epr		; Basic/Kernal-ROM-Simulation
+	STA memconf		; damit internes RAM gelesen werden kann!
+	XBA
+}
 gmask_flip
         EOR #$00
 gmask_op
         ORA (gaddr),Y
         STA (gaddr),Y
+!ifdef ltc {
+	LDA #mc_sim		; vollständige ROM-Simulation
+	STA memconf		; wieder schnelles RAM ab $C000
+}
         RTS
 
 }
@@ -673,11 +729,13 @@ getxy
         JSR b_convint
         CMP #>xmax
 	BCC gcxy_xok
-        BEQ +		; X = $1xx
-error_iq
+        BEQ ++		; X = $1xx
         JSR range_error
-+	CPY #<xmax	; check X low
-        BCS error_iq	; X to big
+
+++	CPY #<xmax	; check X low
+        BCC +
+        JSR range_error
++
 gcxy_xok
         STY gpos	; temporary save X coord.
         STA gpos+1
@@ -685,8 +743,9 @@ gcxy_xok
         JSR b_getcomma8bit
 			; get Y coord. value
         CPX #ymax
-        BCS error_iq	; Y to big
-
+        BCC +
+        JSR range_error
++
         LDY gpos	; restory X coord.
         LDA gpos+1
         RTS
@@ -703,13 +762,6 @@ hline
         JSR b_getcomma	; get length
         JSR b_getval
         JSR b_convint
-
-        CMP #>xmax
-        BCC +		; X < 256
-        BNE error_iq
-        CPY #<xmax
-        BCS error_iq
-+
 			; calculate end point
         TAX		; save length high byte
         TYA		; length low byte
@@ -724,14 +776,32 @@ hline
 
 	CMP #>xmax	; endpoint outside?
 	BCC +
+	BNE ++		; >=$200
 	TYA
 	SBC #<xmax
-	BCS error_iq
+	BCC +
+++	JSR range_error
 +
         STX savexh
         STY savexl	; also save as cursor
 
+	LDA #0
+	STA ycount
+	JSR $0079
+	BEQ +
+	JSR b_getcomma8bit
+	TXA
+	STA ycount
+	BEQ +
+	CLC
+	ADC y		; end position for y coord.
+	CMP #ymax
+	BCC ++
+	JSR range_error
+++
++
         JSR ginit	; map in graphic memory
+	BNE hl_noxswap	; ginit left with Z=0
 
 hline_start
         LDA xendl
@@ -749,22 +819,18 @@ hline_start
         LDY xh
         STY xendh
         STX xh
-        JMP hl_start	; x != xend
-
 hl_noxswap
-        LDA xendl
-        CMP xl
-        BNE hl_start
-        LDA xendh
-        CMP xh
-        BNE hl_start	; x = xend ->
-	JMP plot_start	; single point
-;	JMP gexit	; no point
-
+	INC ycount
 hl_start
         JSR position	; graphic position x,y
-        LDA maskleft,X
-        PHA		; save left end mask
+
+	LDA gaddr	; save position for vertical
+	STA sgaddr
+	LDA gaddr+1
+	STA sgaddr+1
+	STX xsave
+	STY ysave
+
         LDA xendl
         AND #%00000111
         STA tmp2	; xend mod 8, mask index
@@ -782,31 +848,74 @@ hl_start
         ROR		; and 3 lower bits
         LSR
         LSR
-        TAX		; 8-pixel-blocks count
-        PLA		; left end x mask
+        		; 8-pixel-blocks count
+	STA hcount	; save for vertical extension
+ 
+hl_vertloop
+	TYA		; calculate max. Y in 8x8 block
+	CLC
+	ADC ycount
+	CMP #8
+	BCC +
+	LDA #8
++	STA ylimit
+
+        LDA maskleft,X	; starting mask
+	STA tmp1
+	LDX hcount	; how many blocks
 
 hl_nextblock
         DEX
 hl_islastblock
         BMI hl_lastblock
 			; leave loop if X<0
-        JSR gmask	; first with left end mask
-        CLC		; gaddr += 8
+	LDY ysave
+-	LDA tmp1	; mask
+	JSR gmask	; first with left end mask
+	INY		; vertical down
+	CPY ylimit	; in 8x8 box
+	BNE -
+
+        CLC		; gaddr += 8 (one block to right)
         LDA gaddr
         ADC #8
         STA gaddr
         BCC +
         INC gaddr+1
+
 +	LDA #$FF	; following with full 8-pixel mask
+	STA tmp1
 	BNE hl_nextblock	; always
 
 hl_lastblock
         LDX tmp2	; xend mask index
-        AND maskright,X ; mask right end
-        JSR gmask	; modify
+        AND maskright,X ; A has current maskt combine with mask right end
+	STA tmp1	; mask
+	LDY ysave	; start position in 8x8 block
+-	LDA tmp1	; mask
+	JSR gmask	; modify
+	INY		; vertical down
+	DEC ycount	; overall y counter
+	CPY ylimit
+	BNE -
+
+	LDA ycount	; finished
+	BNE +
         JMP gexit	; leave
 
-
++	CLC
+	LDA sgaddr
+	ADC #$40	; next 8-pixel row
+	STA sgaddr	; + $140 (320)
+	STA gaddr
+	LDA sgaddr+1
+	ADC #$01
+	STA sgaddr+1
+	STA gaddr+1
+	LDX xsave
+	LDY #0
+	STY ysave
+	BEQ hl_vertloop
 ;-----------------------------------------------------------------
 
 vline
@@ -825,17 +934,15 @@ vline
 ;		DO NOT USE: tmp1 does not exist if called via vline_start!
 ;	STA tmp1
         ADC y		; length + y
-        CMP #ymax
+        CMP #ymax	; outside?
         BCC +
 vline_iq
         JSR range_error
 +	STA yend	; endpoint
-	CMP #ymax	; outside?
-	BCS vline_iq
 
 	STA savey	; set cursor y position
-
         JSR ginit	; map in graphic memory
+	BNE vl_start	; ginit left with Z=0
 
 vline_start
         LDA yend
@@ -848,8 +955,8 @@ vline_start
 	BEQ vl_start	; always (with next branch)
 	; fall through if yend is
 vl_noyswap
-        BNE vl_start	; y = yend ->
-	JMP plot_start	; single point
+        BNE vl_start	; yend > y
+;	JMP plot_start	; y = yend -> single point
 ;	JMP gexit	; no point
 
 vl_start
@@ -961,6 +1068,8 @@ li_x_different
 li_y_right
         STA dy
         BNE +
+	LDA #0
+	STA ycount
         JMP hline_start	; horizontal line case
 +
 	; dx and dy is *always* !=0, otherwise hline or vline got called.
@@ -1041,6 +1150,7 @@ move
 
 ;-----------------------------------------------------------------
 
+; never touch X, Y
 range_error
 	LDA savemo
 	AND #$F0
@@ -1066,6 +1176,7 @@ setmode
 	CPX #6
 	BCS setmode_error	; out of range
 				; error mode
+	TXA
 	ADC #13			; C=0, therefore -3
 				; 3-5 -> 16-18
 				; put A's bit 4-7 into savemo
@@ -1190,12 +1301,15 @@ relto_error
         JSR range_error
 +	LDA xendl
         CMP #<xmax
-        BCS relto_error
+        BCC +
+        JSR range_error
++
 rt_xok
         LDA yend	; check end coord. y
         CMP #ymax
-        BCS relto_error
-
+        BCC +
+        JSR range_error
++
         LDA savexl
         STA xl
         LDA savexh

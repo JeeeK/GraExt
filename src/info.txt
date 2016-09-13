@@ -6,6 +6,14 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+	2016-06-19 v 1.25		&C korrigiert umstrukturiert.
+					&s5 ist noch nicht implementiert.
+					Produktiv mit Mängel:
+					Fehlerbehandlung unvollständig (für &s3-5)
+					Neu: &H x,y,xl[,yl] (breite horiz.  Linie)
+					LTC-Variante berücksichtigt spezielle
+					Speicherkonfiguration!
+					Versionsnummer im Dateikopf.
 	2016-06-16 v 1.24		Bugfix: &C korrigiert umstrukturiert.
 					Startmeldung nur im Direktmodus ausgeben.
 					Buggy:
@@ -160,6 +168,11 @@ demo1.prg		Grafik-Demo: Schirm mit Linien füllen (CBM-Format)
 demo2.bas		Grafik-Demo: Schirm mit mittigem Linienstrahlen füllen (Textformat)
 demo2.prg		Grafik-Demo: Schirm mit mittigem Linienstrahlen füllen (CBM-Format)
 
+demo-h-v.bas		Grafik-Demo: Vergleich Schirmfüllen mit
+			H-Linien, V-Linien und H-Block (Textformat)
+demo-h-v.prg		Grafik-Demo: Vergleich Schirmfüllen mit
+			H-Linien, V-Linien und H-Block (CBM-Format)
+
 g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
 			Distributionsdisk
@@ -172,6 +185,9 @@ ge-run.l		ACME Listing-Ausgabe der RUN-Variante
 ge-run.prg		ACME Objekt-Datei (CBM-Format) der RUN-Variante
 ge-run.r		ACME Report-Ausgabe der RUN-Variante
 
+graext-c000-ltc		Gra-Ext LTC-Variante (Lost Turbo Card 64)
+graext-c000-ltc.l	ACME Listing-Ausgabe der LTC-Variante
+graext-c000-ltc.r	ACME Report-Ausgabe der LTC-Variante
 
 graext-core.asm		Gra-Ext Core für RUN-Variante, SYS-Variante
 
@@ -190,10 +206,70 @@ graext.r		ACME Report-Ausgabe der SYS-Variante
 
 info.txt		diese Datei
 
-x.d64			D64-Image, erstell mittel
+x.d64			D64-Image, erstell mittels
 			make x.d64
 			oder
 			make i
 
+
+
+
+
+Benchmarking
+-------------
+
+++++++++ GraExt 1.17
+
+### Dreieck
+
+10 &g,1,5,0
+20 &s,2
+100 fori=0to319
+110 &l,0,0,i,199
+120 next
+130 goto100
+1000 &g,0
+
+# 6510 1 MHz
+10 Durchläufe 1:33 -> 9,3s
+
+
++++++++ GraExt 1.25
+
+### Unterschied &H im Blockmodus und &V
+
+# Vertikale Linie von links nach rechts den Bildschirm füllend.
+# Siehe demo-h-v.bas
+
+# Variante 1
+&H 0,0,319,199
+
+# Variante 2 (1 Pixel lange vertikale Linie vertikal über volle Höhe)
+FOR X=0TO319
+&H X,0,0,199
+NEXT
+
+# Variante 3
+FOR X=0TO319
+&V X,0,199
+NEXT
+
+# Variante 4 (vertikale Linie, ist Sonderfall der auf &V-Routine geht)
+FOR X=0TO319
+&L X,0,X,199
+NEXT
+
+# Variante 5 (vergleich, mit horiz. Linien füllen)
+FOR X=0TO199
+&L 0,X,319,X
+NEXT
+
+
+Variante	Zeit
+1: &H full	0,03
+2: &H		6,52
+3: &V		5,45
+4: &L vert.	5,83
+5: &L hor.	2,50
 
 

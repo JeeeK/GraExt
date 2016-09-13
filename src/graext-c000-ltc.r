@@ -443,7 +443,7 @@
    398  c1c2 a229               	LDX #(gromcode_end-gromcode) ; count of bytes
    399                          gra_copycode
    400  c1c4 bde5c1             	LDA gromcode-1,X
-   401  c1c7 9dec03             	STA gramcode-1,X
+   401  c1c7 9dd203             	STA gramcode-1,X
    402  c1ca ca                 	DEX
    403  c1cb d0f7               	BNE gra_copycode
    404  c1cd ad3703             	LDA savemo
@@ -485,20 +485,20 @@
    440                          
    441                          gchange
    442                          !ifdef ltc {
-   443                          	LDA #mc_epr		; Basic/Kernal-ROM-Simulation
-   444                          	STA memconf		; damit internes RAM gelesen werden kann!
+   443  c1e6 a920               	LDA #mc_epr		; Basic/Kernal-ROM-Simulation
+   444  c1e8 8f010004           	STA memconf		; damit internes RAM gelesen werden kann!
    445                          } else {
-   446  c1e6 eaeaeaeaeaea       	!fill 6, $ea
+   446                          	!fill 6, $ea
    447                          }
    448  c1ec b1a5                       LDA (gaddr),Y
    449                          gchange_op
    450  c1ee 1dfdc0                     ORA bitmask,X
    451  c1f1 91a5                       STA (gaddr),Y
    452                          !ifdef ltc {
-   453                          	LDA #mc_sim		; vollständige ROM-Simulation
-   454                          	STA memconf		; wieder schnelles RAM ab $C000
+   453  c1f3 a910               	LDA #mc_sim		; vollständige ROM-Simulation
+   454  c1f5 8f010004           	STA memconf		; wieder schnelles RAM ab $C000
    455                          } else {
-   456  c1f3 eaeaeaeaeaea       	!fill 6, $ea
+   456                          	!fill 6, $ea
    457                          }
    458  c1f9 60                         RTS
    459                          
@@ -506,12 +506,12 @@
    461                          
    462                          gmask
    463                          !ifdef ltc {
-   464                          	XBA
-   465                          	LDA #mc_epr		; Basic/Kernal-ROM-Simulation
-   466                          	STA memconf		; damit internes RAM gelesen werden kann!
-   467                          	XBA
+   464  c1fa eb                 	XBA
+   465  c1fb a920               	LDA #mc_epr		; Basic/Kernal-ROM-Simulation
+   466  c1fd 8f010004           	STA memconf		; damit internes RAM gelesen werden kann!
+   467  c201 eb                 	XBA
    468                          } else {
-   469  c1fa eaeaeaeaeaeaeaea   	!fill 8, $ea
+   469                          	!fill 8, $ea
    470                          }
    471                          gmask_flip
    472  c202 4900                       EOR #$00
@@ -519,10 +519,10 @@
    474  c204 11a5                       ORA (gaddr),Y
    475  c206 91a5                       STA (gaddr),Y
    476                          !ifdef ltc {
-   477                          	LDA #mc_sim		; vollständige ROM-Simulation
-   478                          	STA memconf		; wieder schnelles RAM ab $C000
+   477  c208 a910               	LDA #mc_sim		; vollständige ROM-Simulation
+   478  c20a 8f010004           	STA memconf		; wieder schnelles RAM ab $C000
    479                          } else {
-   480  c208 eaeaeaeaeaea       	!fill 6, $ea
+   480                          	!fill 6, $ea
    481                          }
    482  c20e 60                         RTS
    483                          
@@ -564,7 +564,7 @@
    519                          line_up_steep
    520  c234 200fc2                     JSR position	; x,y
    521                          loop_yup_xright
-   522  c237 20ed03                     JSR gchange	; pixel
+   522  c237 20d303                     JSR gchange	; pixel
    523                          
    524  c23a 18                         CLC		; k += dx
    525  c23b a595                       LDA kl
@@ -616,7 +616,7 @@
    571  c27c e6a4               	INC ch
    572                          +
    573                          loop_xright_yup
-   574  c27e 20ed03                     JSR gchange	; pixel
+   574  c27e 20d303                     JSR gchange	; pixel
    575                          
    576  c281 18                         CLC		; k += dy
    577  c282 a595                       LDA kl
@@ -677,7 +677,7 @@
    632  c2d1 e6a4               	INC ch
    633                          +
    634                          loop_xright_ydown
-   635  c2d3 20ed03                     JSR gchange	; pixel
+   635  c2d3 20d303                     JSR gchange	; pixel
    636                          
    637  c2d6 18                         CLC		; k += dy
    638  c2d7 a595                       LDA kl
@@ -734,7 +734,7 @@
    689                          line_down_steep
    690  c320 200fc2                     JSR position	; x,y
    691                          loop_ydown_xright
-   692  c323 20ed03                     JSR gchange	; pixel
+   692  c323 20d303                     JSR gchange	; pixel
    693                          
    694  c326 18                         CLC		; k += dx
    695  c327 a595                       LDA kl
@@ -924,7 +924,7 @@
    879                          			; leave loop if X<0
    880  c445 a4a9               	LDY ysave
    881  c447 a595               -	LDA tmp1	; mask
-   882  c449 200104             	JSR gmask	; first with left end mask
+   882  c449 20e703             	JSR gmask	; first with left end mask
    883  c44c c8                 	INY		; vertical down
    884  c44d c4a8               	CPY ylimit	; in 8x8 box
    885  c44f d0f6               	BNE -
@@ -946,7 +946,7 @@
    901  c467 8595               	STA tmp1	; mask
    902  c469 a4a9               	LDY ysave	; start position in 8x8 block
    903  c46b a595               -	LDA tmp1	; mask
-   904  c46d 200104             	JSR gmask	; modify
+   904  c46d 20e703             	JSR gmask	; modify
    905  c470 c8                 	INY		; vertical down
    906  c471 c6a3               	DEC ycount	; overall y counter
    907  c473 c4a8               	CPY ylimit
@@ -1027,7 +1027,7 @@
    982  c4de e8                         INX		; +1 (exit on 0)
    983                          vl_nextline
    984  c4df a596                       LDA tmp2
-   985  c4e1 200104                     JSR gmask	; modify 
+   985  c4e1 20e703                     JSR gmask	; modify 
    986  c4e4 c8                         INY		; go down
    987  c4e5 c008                       CPY #8		; 8-line wrap
    988  c4e7 d00e                       BNE +
@@ -1183,7 +1183,7 @@
   1138  c5cb 78                         SEI			
   1139  c5cc 8501                       STA prozport
   1140                          
-  1141  c5ce 20ed03                     JSR gchange	; change graphical data
+  1141  c5ce 20d303                     JSR gchange	; change graphical data
   1142                          
   1143  c5d1 a501                       LDA prozport
   1144  c5d3 0902                       ORA #%00000010	; kernal ROM enable
@@ -1250,43 +1250,43 @@
   1205                          
   1206                          modereset
   1207  c623 a9c1                       LDA #>(nbitmask)
-  1208  c625 8df703                     STA gchange_op+2
+  1208  c625 8ddd03                     STA gchange_op+2
   1209  c628 a905                       LDA #<(nbitmask)
-  1210  c62a 8df603                     STA gchange_op+1
+  1210  c62a 8ddc03                     STA gchange_op+1
   1211  c62d a93d                       LDA #$3D		; AND abs,X
-  1212  c62f 8df503                     STA gchange_op
+  1212  c62f 8ddb03                     STA gchange_op
   1213  c632 a931                       LDA #$31		; AND (zp),Y
-  1214  c634 8d0b04                     STA gmask_op
+  1214  c634 8df103                     STA gmask_op
   1215  c637 a9ff                       LDA #$FF		; EOR $#FF, invertieren
-  1216  c639 8d0a04                     STA gmask_flip+1
+  1216  c639 8df003                     STA gmask_flip+1
   1217  c63c 60                         RTS
   1218                          
   1219                          set_or_toggle
   1220  c63d d01a                       BNE modetoggle
   1221                          modeset
   1222  c63f a9c0                       LDA #>(bitmask)
-  1223  c641 8df703                     STA gchange_op+2
+  1223  c641 8ddd03                     STA gchange_op+2
   1224  c644 a9fd                       LDA #<(bitmask)
-  1225  c646 8df603                     STA gchange_op+1
+  1225  c646 8ddc03                     STA gchange_op+1
   1226  c649 a91d                       LDA #$1D		; OR abs,X
-  1227  c64b 8df503                     STA gchange_op
+  1227  c64b 8ddb03                     STA gchange_op
   1228  c64e a911                       LDA #$11		; OR (zp),Y
-  1229  c650 8d0b04                     STA gmask_op
+  1229  c650 8df103                     STA gmask_op
   1230  c653 a900                       LDA #$00		; EOR #$00, nicht invertieren
-  1231  c655 8d0a04                     STA gmask_flip+1
+  1231  c655 8df003                     STA gmask_flip+1
   1232  c658 60                         RTS
   1233                          
   1234                          modetoggle
   1235  c659 a9c0                       LDA #>(bitmask)
-  1236  c65b 8df703                     STA gchange_op+2
+  1236  c65b 8ddd03                     STA gchange_op+2
   1237  c65e a9fd                       LDA #<(bitmask)
-  1238  c660 8df603                     STA gchange_op+1
+  1238  c660 8ddc03                     STA gchange_op+1
   1239  c663 a95d                       LDA #$5D		; EOR abs,X
-  1240  c665 8df503                     STA gchange_op
+  1240  c665 8ddb03                     STA gchange_op
   1241  c668 a951                       LDA #$51		; EOR (zp),Y
-  1242  c66a 8d0b04                     STA gmask_op
+  1242  c66a 8df103                     STA gmask_op
   1243  c66d a900                       LDA #$00		; EOR #$00, nicht invertieren
-  1244  c66f 8d0a04                     STA gmask_flip+1
+  1244  c66f 8df003                     STA gmask_flip+1
   1245  c672 60                         RTS
   1246                          
   1247                          
@@ -1481,7 +1481,7 @@
   1436  c793 a007                       LDY #$07	; 8 hires lines
   1437                          char_line
   1438  c795 b1fb                       LDA (gpos),Y	; read character line
-  1439  c797 200104                     JSR gmask	; write to hires screen
+  1439  c797 20e703                     JSR gmask	; write to hires screen
   1440  c79a 88                         DEY
   1441  c79b 10f8                       BPL char_line
   1442                          
