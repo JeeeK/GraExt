@@ -3,9 +3,10 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 !macro version {
-	!text "1.25" ; current version
+	!text "1.26" ; current version
 }
 ; revisions:
+;	2016-07-09 v 1.26
 ;	2016-06-21 v 1.25
 ;	2016-06-16 v 1.24
 ;	2016-05-29 v 1.23
@@ -33,11 +34,14 @@
 
 ; basic interpreter registers, addresses and entry points
 
+type	= $0d
 str     = $22		; string address
 bassta	= $2b		; basic start pointer
 basend	= $2d		; basic end pointer
 ijmp    = $55		; address of JMP (addr)
 chrget  = $73		; basic charget routine
+chrgot  = $79		; basic last char got (charget routine)
+txtptr	= $7A		; basic text pointer
 facintl = $65		; integer result from b_fac2int
 facinth = $64
 facexp  = $61		; fac exponent, after b_getval
@@ -56,6 +60,7 @@ basic_rom = $A000	; start of BASIC ROM
 b_clr = $A660		; CLR command
 b_interpreter = $A7AE	; interpreter loop
 b_execstatement = $A7E7	; process statement
+b_execexpr =$AE92	; process expression
 b_getcomma = $AEFD	; read comma from basic text
 b_illquant = $B248	; error "illegal quantity"
 b_syntaxerror = $AF08	; error "syntax"
@@ -66,10 +71,14 @@ b_getcomma8bit = $B7F1	; read comma and 8 bit numeric value
 b_getval = $AD8A	; read numeric value from basic text
 b_getexpr = $AD9E	; read expression from basic text
 b_byte2fac =$B3A2	; convert Y to FAC (unsigned 8 bit)
+b_word2fac =$B391	; convert Y/Y to FAC (signed 16 bit)
 b_convint = $B7F7	; convert FAC to unsigned integer, return Y/A and $14/$15
 b_fac2int = $BC9B	; convert FAC to integer
 b_stringval = $B6A3	; take epression as string $22/$23 (str)
 b_rechain = $A533	; rechain basic lines
+b_str2fac = $BCF3	; convert string in FAC (expression handling)
+b_chkparl = $AEFA 	; check '('
+b_chkparr = $AEF7 	; check ')'
 
 ; hardware registers and values
 
@@ -134,12 +143,14 @@ xsave	= gcol		; X register save (hline context)
 
 ; static ram areas
 
-savexl	= $0334		; the graphic cursor: x low 
+saveverr = $0334	; original v_baserr
+savevstp = saveverr+2	; original v_basstp
+savevexp = savevstp+2	; original v_basexp
+savexl	= savevexp+2	; the graphic cursor: x low 
 savexh	= savexl+1	; the graphic cursor: x high
 savey	= savexh+1	; the graphic cursor: y
 savemo	= savey+1	; the graphic mode
-saveverr = savemo+1	; original v_baserr
-savevstp = saveverr+2	; original v_basstp
+saveend = savemo+1	; byte after save area
 
 			; real place for gchange and gmask routines,
 !ifdef ltc {
@@ -174,9 +185,18 @@ mc_sim  = $10                   ; ROM-Simulation Bit
 
 init
         LDA #<(parse)	; basic interpreter parser hook
-        STA v_bascmd
+        STA v_bascmd	; for commands
         LDA #>(parse)
         STA v_bascmd+1
+
+        LDA v_basexp	; basic interpreter parser hook
+	STA savevexp	; for expressions
+        LDA #<(express) ; with save of old pointer
+        STA v_basexp
+        LDA v_basexp+1
+	STA savevexp+1
+        LDA #>(express)
+        STA v_basexp+1
 
         LDA v_basstp
 	STA savevstp
@@ -268,6 +288,35 @@ checknextcmd
 }
 parse_error
         JMP b_syntaxerror		; throw error (unknown command)
+
+;-----------------------------------------------------------------
+        ; see http://unusedino.de/ec64/technical/aay/c64/romae83.htm
+express
+	LDA #0
+	STA type	
+	JSR chrget
+	BCS exp_nonumber
+	JMP b_str2fac
+exp_nonumber
+        CMP #'&'			; command prefix
+        BEQ newfunc
+	LDA txtptr			; undo chrget
+	BNE +
+	DEC txtptr+1
++	dec txtptr
+	JMP (savevexp)			; original routine	
+;	JMP b_execexpr
+newfunc
+	jsr chrget
+	CMP #'Z'
+	BNE +
+	JMP get
++	CMP #'X'
+	BNE +
+	JMP getposx
++	CMP #'Y'
+	BNE parse_error
+	JMP getposy
 
 ;-----------------------------------------------------------------
 
@@ -1238,17 +1287,39 @@ modetoggle
 
 
 ;-----------------------------------------------------------------
+; get current x cursor position
+
+getposx
+	LDY savexl
+	LDA savexh
+	JSR b_word2fac
+	JMP chrget	; last position of expression (function name)
+
+;-----------------------------------------------------------------
+; get current y cursor position
+
+getposy
+	LDY savey
+	JSR b_byte2fac
+	JMP chrget	; last position of expression (function name)
+
+;-----------------------------------------------------------------
 
 ; get pixel (check if pixel set)
 ; not used
 
 get
-        JSR getcommaxy
+	JSR chrget	; advance past function name
+	JSR b_chkparl	; "("?
+        JSR getxy	; get X,Y values
         STA xh
         STY xl
         STX y
+	JSR chrgot
+	JSR b_chkparr	; ")"?
+	
 
-        JSR position
+        JSR position	; calculate graphic address/position
 
         LDA prozport
 	AND #%11111101	; Kernal ROM disable
@@ -1256,14 +1327,16 @@ get
         STA prozport
 
         LDA (gaddr),Y
-        AND bitmask,X
+        AND bitmask,X	; mask position
         TAY
         LDA prozport
 	ORA #%00000010	; kernal ROM enable
         STA prozport
         CLI
-        JMP b_byte2fac
-
+	TYA
+	BEQ +
+	LDY #1		; <> 0 -> alway return 1
++	JMP b_byte2fac	; still on expr.'s last character
 
 ;-----------------------------------------------------------------
 

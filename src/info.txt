@@ -6,10 +6,13 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+	2016-07-09 v 1.26		Funktionen &X,&Y,&Z(x,y) ergänzt.
+					save-Variablen umgeordnet, erweitert.
+					Single-Expression-Hook ($030A) verwendet.
 	2016-06-19 v 1.25		&C korrigiert umstrukturiert.
 					&s5 ist noch nicht implementiert.
 					Produktiv mit Mängel:
-					Fehlerbehandlung unvollständig (für &s3-5)
+					Fehlerbehandlung korr. (für &s3-5)
 					Neu: &H x,y,xl[,yl] (breite horiz.  Linie)
 					LTC-Variante berücksichtigt spezielle
 					Speicherkonfiguration!
@@ -60,10 +63,6 @@ ToDo:
 
 Wunschliste:
 
- * Block gefüllt (&H anpassen?)
- * Fehlerbehandlung auswählbar.
- * Grafikcursor auslesen.
- * GETXY-Funktion
  * Fill
  * Grafik löschen separat und besonders schnell!
  * Optimierungen: Line, zu niedrigen Koordinaten mit
@@ -72,9 +71,14 @@ Wunschliste:
  * Circle
  * Clipping: trotzdem Zeichnen, aber am Rand aufhören.
         Echtes Clipping oder nur Koordinaten abschneiden?
+        (Fehlerbehandlung Mode 5!)
  * Multicolor?
 
 erledigt:
+ * Grafikcursor auslesen -> ab 1.26
+ * GETXY-Funktion -> ab 1.26
+ * Fehlerbehandlung auswählbar -> ab 1.25
+ * Block gefüllt (&H anpassen?) -> ab 1.25
  * Unnew -> ab 1.23
  * Grafik einschalten ohne löschen. -> ab 1.22
 
@@ -213,6 +217,42 @@ x.d64			D64-Image, erstell mittels
 
 
 
+Lost Turbo Card 64 (LTC)
+------------------------
+
+Seit V 1.25 ist mit "graext-c000-ltc" die Unterstützung für die 65816-CPU-Erweiterungsplatine
+auf Basis eines Artikels im c't-Magazin gegeben:
+
+Michael Flamm, Rene Schneider:
+Aufgemotzt
+C64 mit 4-MHz-Takt und 16-Bit -CPU
+Projekt, Commodore C64
+c't 6/87, Seite 94ff
+
+Im Boot-ROM der Erweiterung wird GraExt eingebunden und kann mit SYS 49152
+aktiviert werden. Dies ist dank der seit Version 1.22 eingeführten
+ROM-Fähigkeit bei GraExt nun möglich.
+Dabei wird die vollständige ROM-Simulation aktiviert, die
+gewährleistet, dass GraExt mit der vollen Taktfrequenz (nicht auf 1 MHz gebremst)
+ausgeführt wird. Auf die Zeropage-Register wird ohnehin immer ungebremst
+zugegriffen. Lediglich beim Zugriff auf das Grafik-RAM (das C64-interne) zwecks
+Manipulation der Grafikdaten, erfolgt der Zugriff nur mit 1 MHz, was aber anteilig
+eher geringfügig ist.
+Allerdings hat der Modus "vollständige ROM-Simulation" den Nachteil, dass ab
+$8000 das externe RAM eingeblendet ist und als Pseudo-ROM wie ein ROM nicht 
+veränderlich ist. Hier funktioniert leider auch nicht die gewohnte Steuerung 
+der Memory-Map mittels Prozessorport $01. Daher muss beim Zugriff auf das 
+Grafik-RAM ab $E000 immer dieser Modus ausgeschaltet und auf die normale 
+ROM-Simulation umgeschaltet werden (wo dann das KERNAL-ROM ausgeblendet ist).
+Diese Umschaltung ist nur in der speziellen graext-c000-ltc-Variante
+inkludiert. Da hierbei umständlich ein Konfigurationsregister der HW-Erweiterung
+beschrieben werden muss, kommen hier zur Sicherung des Registers und zum Erreichen
+des Konfigurationsregisters auch 65816er-Befehle vor, die aber auch im
+Emulationsmodus ausgeführt werden können (XBA, STA absolut-long).
+Dieser zusätzliche Code hat als Nebenwirkung ein leichte Verlangsamung
+im 1-MHz-Modus im Vergleich zum "normalen" C64 ohne HW-Erweiterung, aber im
+Turbo-Modus wird das Maximum der möglichen Geschwindigkeit heraus geholt.
+
 
 
 Benchmarking
@@ -241,25 +281,25 @@ Benchmarking
 # Vertikale Linie von links nach rechts den Bildschirm füllend.
 # Siehe demo-h-v.bas
 
-# Variante 1
+# Variante 1 (1 320 lange und 200 breite horzontale Linie)
 &H 0,0,319,199
 
-# Variante 2 (1 Pixel lange vertikale Linie vertikal über volle Höhe)
+# Variante 2 (320 1 Pixel lange horizontale Linie vertikal über volle Höhe)
 FOR X=0TO319
 &H X,0,0,199
 NEXT
 
-# Variante 3
+# Variante 3 (320 vertikale Linien)
 FOR X=0TO319
 &V X,0,199
 NEXT
 
-# Variante 4 (vertikale Linie, ist Sonderfall der auf &V-Routine geht)
+# Variante 4 (320 vertikale Linien, ist Sonderfall der auf &V-Routine geht)
 FOR X=0TO319
 &L X,0,X,199
 NEXT
 
-# Variante 5 (vergleich, mit horiz. Linien füllen)
+# Variante 5 (200 horizontale 320 lange Linien, ist Sonderfall der auf &H-Routine geht)
 FOR X=0TO199
 &L 0,X,319,X
 NEXT
