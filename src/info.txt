@@ -6,6 +6,7 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+	2016-07-13 v 1.27		&V geschwindigkeitsoptimiert.
 	2016-07-09 v 1.26		Funktionen &X,&Y,&Z(x,y) ergänzt.
 					save-Variablen umgeordnet, erweitert.
 					Single-Expression-Hook ($030A) verwendet.
@@ -177,6 +178,9 @@ demo-h-v.bas		Grafik-Demo: Vergleich Schirmfüllen mit
 demo-h-v.prg		Grafik-Demo: Vergleich Schirmfüllen mit
 			H-Linien, V-Linien und H-Block (CBM-Format)
 
+demo-v.bas		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (Textformat)
+demo-v.prg		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (CBM-Format)
+
 g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
 			Distributionsdisk
@@ -278,8 +282,10 @@ Benchmarking
 
 ### Unterschied &H im Blockmodus und &V
 
+
 # Vertikale Linie von links nach rechts den Bildschirm füllend.
 # Siehe demo-h-v.bas
+
 
 # Variante 1 (1 320 lange und 200 breite horzontale Linie)
 &H 0,0,319,199
@@ -312,4 +318,19 @@ Variante	Zeit
 4: &L vert.	5,83
 5: &L hor.	2,50
 
+
+
+++++++++++ GraExt 1.26 - 1.27
+
+# Bildschirm mit vertikalen Linien füllen.
+# Siehe demo-h-v.bas
+
+
+10x &VX,0,199           54.25 s (TI)
+
+Nach &V Optimierung in 1.27
+
+10x &VX,0,199           52.85 s (TI)
+10x &VX,199,X,0         57.00 s (TI)    Parsing 4. Parameter
+10x &VX,0,X,199         57.05 s (TI)    Parsing 4. Parameter und Tausch der Y-Werte
 

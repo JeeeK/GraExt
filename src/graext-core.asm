@@ -3,10 +3,10 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 !macro version {
-	!text "1.26" ; current version
+	!text "1.27" ; current version
 }
 ; revisions:
-;	2016-07-09 v 1.26
+;	2016-07-13 v 1.27
 ;	2016-06-21 v 1.25
 ;	2016-06-16 v 1.24
 ;	2016-05-29 v 1.23
@@ -834,19 +834,20 @@ hline
         STX savexh
         STY savexl	; also save as cursor
 
-	LDA #0
+	LDA #0		; default thickness 0 (means 1 pixel)
 	STA ycount
-	JSR $0079
-	BEQ +
+	JSR $0079	; chargot
+	BEQ +		; command end? no optional param.
 	JSR b_getcomma8bit
-	TXA
-	STA ycount
+	TXA		; optional 8-bit parameter
+	STA ycount	; hline thickness
 	BEQ +
 	CLC
 	ADC y		; end position for y coord.
+	BCS +++
 	CMP #ymax
 	BCC ++
-	JSR range_error
++++	JSR range_error
 ++
 +
         JSR ginit	; map in graphic memory
@@ -869,7 +870,7 @@ hline_start
         STY xendh
         STX xh
 hl_noxswap
-	INC ycount
+	INC ycount	; count to 0
 hl_start
         JSR position	; graphic position x,y
 
@@ -949,20 +950,20 @@ hl_lastblock
 	BNE -
 
 	LDA ycount	; finished
-	BNE +
+	BNE +		; roll-over into 8x8 block below
         JMP gexit	; leave
 
 +	CLC
 	LDA sgaddr
-	ADC #$40	; next 8-pixel row
+	ADC #$40	; next 8-pixel row below
 	STA sgaddr	; + $140 (320)
 	STA gaddr
 	LDA sgaddr+1
 	ADC #$01
 	STA sgaddr+1
 	STA gaddr+1
-	LDX xsave
-	LDY #0
+	LDX xsave	; initial mask index
+	LDY #0		; start on top of 8x8
 	STY ysave
 	BEQ hl_vertloop
 ;-----------------------------------------------------------------
@@ -973,7 +974,7 @@ vline
         STA savexh	; save as cursor too
         STY xl
         STY savexl
-        STX y
+        STX yend	; inital point is endpoint
 
         JSR b_getcomma8bit
 			; get length
@@ -982,31 +983,29 @@ vline
 ; DON'T-CHANGE: how long to go vertically (needed later)
 ;		DO NOT USE: tmp1 does not exist if called via vline_start!
 ;	STA tmp1
-        ADC y		; length + y
+        ADC yend	; length + initial point is startpoint
+	BCS vline_iq	; > 255
         CMP #ymax	; outside?
         BCC +
 vline_iq
         JSR range_error
-+	STA yend	; endpoint
++	STA y		; startpoint
 
 	STA savey	; set cursor y position
         JSR ginit	; map in graphic memory
 	BNE vl_start	; ginit left with Z=0
+			; skip following, because y, yend are already ordered
 
-vline_start
-        LDA yend
-        CMP y
-        BCS vl_noyswap	; yend < y ->
+vline_start		; entry point from line command (only)
+        LDA y
+        CMP yend
+        BCS vl_noyswap	; yend > y ->
         LDA y		; swap y, yend
         LDX yend
         STA yend
         STX y
-	BEQ vl_start	; always (with next branch)
-	; fall through if yend is
 vl_noyswap
-        BNE vl_start	; yend > y
-;	JMP plot_start	; y = yend -> single point
-;	JMP gexit	; no point
+			; startpoint is below the endpoint
 
 vl_start
         JSR position	; graphic position x,y
@@ -1014,26 +1013,26 @@ vl_start
         STA tmp2	; save mask
 ; DON'T-CHANGE: replace ...
         SEC
-        LDA yend
-        SBC y		; vertical length
+        LDA y		; startpoint is greater!
+        SBC yend	; vertical length
         TAX
 ; DON'T-CHANGE: replacy by ... (already as parameter, from tmp1)
 ;		DO NOT USE: tmp1 does not exist if called via vline_start!
 ;	LDX tmp1
         INX		; +1 (exit on 0)
+	SEC		; for subtraction, never changed!
 vl_nextline
         LDA tmp2
         JSR gmask	; modify 
-        INY		; go down
-        CPY #8		; 8-line wrap
-        BNE +
-        LDA gaddr	; gaddr += 320
-	ADC #$40-1	; compensate for C = 1
+        DEY		; go up
+        BPL +
+        LDA gaddr	; C=1
+	SBC #$40	; gaddr -= 320
         STA gaddr
         LDA gaddr+1
-        ADC #$01
+        SBC #$01
         STA gaddr+1
-        LDY #0		; wrap y offset
+        LDY #7		; wrap y offset
 +	DEX		; all vertical positions done?
         BNE vl_nextline
         JMP gexit	; leave
