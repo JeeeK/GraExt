@@ -1618,8 +1618,8 @@ leftcont_a
 	LDA maskleft0,x		; get a mask from the left border to right
 	AND tmpmask		; intersect masks
 	STA tmpmask		; and store it for later
+	BEQ next_block		; empty mask immediate continue to right
 	BNE to_right		; start to walk and fill to the right border
-	JMP next_block		; empty mask immediate continue to right
 
 stepleft8
 	LDA x8 			; 8x8 block position
@@ -1642,87 +1642,90 @@ stepleft8
 	LDX #7			; start bit 0 (index 7, rightmost)
 	BNE leftcont_a		; loop to left border search
 	
-to_right			; loop towards right border
+next_block
+	INC x8			; step right a block
+	LDA x8
+	CMP #40			; last horizontal block?
+	BCS process_stack
+	CLC			; advance to block right
+	LDA gaddr		; gaddr = gaddr + 8
+	ADC #8
+	STA gaddr
+	BCC +
+	INC gaddr+1
++	LDA #$ff		; asume "all pixels" mask
+	STA tmpmask
+	LDA (gaddr),y		; pixel data
+	EOR fmode		; set/reset mode
+	STA tmp1		; search right border
+	BEQ ++			; empty -> finally to to_right
+	JSR bitposr		; search right border
+	LDA maskright0,x	; mask out the right part
+	AND tmpmask		; shorten mask accordingly
+	STA tmpmask
+++				; continue to right ...
+
+to_right			; fill loop towards right border
 	LDA tmpmask		; fill mask
 	EOR (gaddr),y		; set/reset to fill
 	STA (gaddr),y		; into bitmap
 	
 check_above
-	STY ysave
 	ASL fcont		; bit 0 to bit 1 position to check (above)
+				; c = 0!
+	STY ysave		; to be restored later
+	LDA gaddr		; current graphic position
+	LDX gaddr+1
 	DEY			; line above
 	BPL +			; leaving 8x8 block?
-	SEC
-	LDA gaddr		; caddr = gaddr - $140
-	SBC #$40		; block above
-	STA caddr
-	LDA gaddr+1
+	; c=0 (asl fcont)
+	SBC #$40-1		; block above:
+	STA caddr		; caddr = gaddr - $140
+	TXA
 	SBC #$01
-	STA caddr+1
+	TAX
 	CMP #>gram		; still graphic ram?
-	BCC +++
-	LDY #7			; last line in block
-	BNE ++
-+	LDA gaddr
-	STA caddr
-	LDA gaddr+1
-	STA caddr+1
-++	JSR fill_check
-+++
+	BCC skip_above
+	LDY #7			; last line in block in new block
+	!by $2c			; = bit $hhll, skip next statement (2 bytes)
++	STA caddr		; still in same block
+++	STX caddr+1		; shared store
+	JSR fill_check
+skip_above
+
 check_below
 	LSR fcont		; bit 2 back to bit 1 position to check (below)
-	LDY ysave
+	LDA gaddr		; current graphic position
+	LDX gaddr+1
+	LDY ysave		; restore original y position
 	INY			; line below
 	CPY #8			; crossing 8x8 block?
-	BCC +
-	LDY #0			; first line in block
-	; c=1
-	LDA gaddr		; caddr = gaddr + $140
-	ADC #$40-1
-	STA caddr
-	TAX
-	LDA gaddr+1
+	BCC +			; less then 8
+	; c=1 (cpy)
+	ADC #$40-1		; block below: accu has gaddr
+	STA caddr		; caddr = gaddr + $140
+	TAY			; for compare later
+	TXA			; gaddr high
 	ADC #$01
-	STA caddr+1
-	BCS +++			; > $10000 (gram=$e000 + $2000)
-	CPX #<(gram+8000)
+	TAX
+	BCS skip_below		; > $10000  -> skip
+	CPY #<(gram+8000)	; > gram end: $e000(=gram) + $2000 ?
 	SBC #>(gram+8000)
-	BCS +++
-	LDY #0
-	BEQ ++
-+	LDA gaddr
-	STA caddr
-	LDA gaddr+1
-	STA caddr+1
-++	JSR fill_check
-+++
-	LDY ysave
-	LDA tmpmask
-	AND #%00000001		; mask open to right, continue?
-	BEQ process_stack
+	BCS skip_below		; greater, so skip
+	LDY #0			; first line in block
+	!by $2c			; = bit $hhll, skip next statement (2 bytes)
++	STA caddr		; transfer unchanged
+++	STX caddr+1		; shared store
+	JSR fill_check
+skip_below
 
-next_block
-	INC x8
-	LDA x8
-	CMP #40			; last horizontal block?
-	BCS process_stack
-	CLC			; advance to block right
-	LDA gaddr
-	ADC #8
-	STA gaddr
-	BCC +
-	INC gaddr+1
-+	LDA #$ff
-	STA tmpmask
-	LDA (gaddr),y		; search right border
-	EOR fmode
-	STA tmp1
-	BEQ ++			; finally to to_right
-	JSR bitposr
-	LDA maskright0,x
-	AND tmpmask
-	STA tmpmask
-++	JMP to_right		; continue to right ...
+	LDY ysave		; restore original y position
+	LDA tmpmask		; mask:
+	AND #%00000001		; open to right, continue?
+	BNE next_block		; to next block if open
+; long branch version
+;	BEQ process_stack	; not open, finished
+;	JMP next_block		; to next block if open
 
 process_stack
 	LDA fstack		; stack empty?
