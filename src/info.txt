@@ -6,6 +6,7 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+        2016-09-10 v 1.28               Funktion &F (Fill) ergänzt.
 	2016-07-13 v 1.27		&V geschwindigkeitsoptimiert.
 	2016-07-09 v 1.26		Funktionen &X,&Y,&Z(x,y) ergänzt.
 					save-Variablen umgeordnet, erweitert.
@@ -64,7 +65,6 @@ ToDo:
 
 Wunschliste:
 
- * Fill
  * Grafik löschen separat und besonders schnell!
  * Optimierungen: Line, zu niedrigen Koordinaten mit
         Dekremetieren und Zero-Bedingung statt Inkremtieren
@@ -76,6 +76,7 @@ Wunschliste:
  * Multicolor?
 
 erledigt:
+ * Fill -> ab 1.28
  * Grafikcursor auslesen -> ab 1.26
  * GETXY-Funktion -> ab 1.26
  * Fehlerbehandlung auswählbar -> ab 1.25
@@ -181,6 +182,11 @@ demo-h-v.prg		Grafik-Demo: Vergleich Schirmfüllen mit
 demo-v.bas		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (Textformat)
 demo-v.prg		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (CBM-Format)
 
+fill-demo.bas		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
+			gesetzten Blockhaufen und wieder füllend löschen (Textformat)
+fill-demo.prg		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
+			gesetzten Blockhaufen und wieder füllend löschen (CBM-Format)
+
 g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
 			Distributionsdisk
@@ -256,6 +262,40 @@ Emulationsmodus ausgeführt werden können (XBA, STA absolut-long).
 Dieser zusätzliche Code hat als Nebenwirkung ein leichte Verlangsamung
 im 1-MHz-Modus im Vergleich zum "normalen" C64 ohne HW-Erweiterung, aber im
 Turbo-Modus wird das Maximum der möglichen Geschwindigkeit heraus geholt.
+
+
+
+
+Fill-Demo
+---------
+
+Speicherverbrauch
+- - - - - - - - -
+
+Siehe fill-demo.bas
+
+                        Stackverbrauch       Elemente
+--------------------------------------------------------------------------------------
+V1.28 2016-09-10        094f - 0f80             396     Nachbaren auf Stack korr.
+
+V1.28 2016-09-05        0900 - 0F00             384     Stackelement entfernen,
+                                                        wenn Lücke vollständig leer.
+                        0909 - 0F71             410
+
+V1.28 2016-08-29        0900 - 1A00             1088    +Lückenstart bei 8-Pixelzeile
+
+V1.28 2016-08-26        0900 - 1A00             1088    durchgehende Lücke oben/unten
+                                                        nur ein Stackelement!
+
+V1.27 2016-08-15        0900 - 4000             3520    jeder nichtgefüllte Nachbar
+                                                        ein Stackelement!
+--------------------------------------------------------------------------------------
+
+Stackverbrauch ermittelt in VICE, nach einigen Durchläufen den Speicher nach
+den Arrays (siehe 2b 2d ... Zeiger) mit m-Befehl untersuchen.
+
+
+
 
 
 
