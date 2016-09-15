@@ -6,7 +6,7 @@
 	!text "1.28" ; current version
 }
 ; revisions:
-;	2016-08-29 v 1.28
+;	2016-09-09 v 1.28
 ;	2016-07-13 v 1.27
 ;	2016-07-09 v 1.26
 ;	2016-06-21 v 1.25
@@ -1560,8 +1560,11 @@ fill
         STX savey
         
         LDA basaryend		; initialize fill stack pointer
+	SEC
+	SBC #4			; one element below
         STA fstack		; use space between basic arrays
         LDA basaryend+1		; and string heap bottom
+	SBC #0			; take borrow
         STA fstack+1
 
 	JSR position
@@ -1646,10 +1649,10 @@ next_block
 	INC x8			; step right a block
 	LDA x8
 	CMP #40			; last horizontal block?
-	BCS process_stack
-	CLC			; advance to block right
-	LDA gaddr		; gaddr = gaddr + 8
-	ADC #8
+	BCS process_stack	; done if right screen border
+	; C = 0
+	LDA gaddr		; advance to block right
+	ADC #8			; gaddr = gaddr + 8
 	STA gaddr
 	BCC +
 	INC gaddr+1
@@ -1657,18 +1660,21 @@ next_block
 	STA tmpmask
 	LDA (gaddr),y		; pixel data
 	EOR fmode		; set/reset mode
-	STA tmp1		; search right border
-	BEQ ++			; empty -> finally to to_right
+;	sta tmp1		; no used!? 
+				;search right border
+	BEQ to_right		; empty -> finally to to_right
 	JSR bitposr		; search right border
 	LDA maskright0,x	; mask out the right part
 	AND tmpmask		; shorten mask accordingly
 	STA tmpmask
-++				; continue to right ...
+	BEQ process_stack	; done if bit 7 (leftmost) is set
+				; continue to right ...
 
 to_right			; fill loop towards right border
 	LDA tmpmask		; fill mask
+				; assert: (pixel & tempmask) == 0
 	EOR (gaddr),y		; set/reset to fill
-	STA (gaddr),y		; into bitmap
+	STA (gaddr),y		; into bitmap - the actual fill action!
 	
 check_above
 	ASL fcont		; bit 0 to bit 1 position to check (above)
@@ -1730,20 +1736,12 @@ skip_below
 process_stack
 	LDA fstack		; stack empty?
 	CMP basaryend
-	BNE +
 	LDA fstack+1
-	CMP basaryend+1
-	BNE +
-	JMP gexit		; we are finished
+	SBC basaryend+1
+	BCS +			; fstack >= basaryend -> not empty
+	JMP gexit		; empty, we are finished
 
-+	SEC
-	LDA fstack
-	SBC #4			; entry size
-	STA fstack
-	BCS ++
-	DEC fstack+1
-	
-++	LDY #3
++	LDY #4-1		; top of stack, element's last component
 	LDA (fstack),y
 	STA x8			; 8x8 block position
 	DEY
@@ -1754,7 +1752,7 @@ process_stack
 	STA gaddr+1		; graphic addr high byte
 	DEY
 	LDA (fstack),y		; graphic addr low byte combined with y-line
-	TAX
+	TAX			; needed twice
 	AND #%11111000		; split off address
 	STA gaddr
 	TXA
@@ -1764,20 +1762,28 @@ process_stack
 	LDA (gaddr),y		; get pixels
 	EOR fmode		; according to set/reset
 	TAX			; keep it for later
-	AND tmpmask
-	BEQ +			; all bits unset, no need to keep
-				; on stack
-	CMP tmpmask
-	BEQ process_stack	; all gaps filled, next on stack
-
-	CLC			; keep entry on stack, splitted unset pixels
-	LDA fstack
-	ADC #4			; entry size
+	AND tmpmask		; focus on masked pixels
+	PHP			; save Z flag
+	BEQ pop_stack		; all bits unset, remove from stack
+				; and fill it!
+	CMP tmpmask		; all gaps filled?
+	BNE +++			; still some gaps (splitted pixels), leave on stack
+	; all gaps filled, next on stack 
+pop_stack
+	SEC	
+	LDA fstack		; remove entry from stack
+	SBC #4			; entry size
 	STA fstack
-	BCC +
-	INC fstack+1
-+
-	TXA			; bitmap
+	BCS +
+	DEC fstack+1
++	PLP
+	BNE process_stack	; all masked bits are set, next stack element
+				; all bits unset,
+	BEQ ++			; stack already cleaned up
++++	PLP			; stack cleanup
+
+	; set bits outside mask to 1
+++	TXA			; bitmap
 				; 00100110	
 	EOR #$ff		; 11011001
 	AND tmpmask		; 00011100 -> 00011000
@@ -1785,14 +1791,14 @@ process_stack
 				; pixel outside tmpmask now set!
 	LDX #$ff
 -	INX
-	ASL
-	BCS -			; until first unset pixel ...
-	
+	ASL			; counting from left
+	BCS -			; find first unset pixel ...
+				; X is bit number the unset pixel
 	LDA (gaddr),y		; setup value for processing a new line
-	EOR fmode
-	STA tmp1
-	JMP f_start
-;	BCC f_start
+	EOR fmode		; set/reset mode
+	STA tmp1		; temporary bitmap pixels
+	JMP f_start		; long (to far away) jump to fill line start
+;	BCC f_start		; always
 
 
 ; Check upper or lower fill path
@@ -1803,8 +1809,45 @@ fill_check
 	EOR fmode		; pixel data
 	TAX			; save for later
 	AND tmpmask		; mask to fill
+
+!if 1 {
+	; NEW version
+
+	BEQ fc_cleared		; all masked pixels cleared?
 	CMP tmpmask		; check for gaps
 	BEQ fc_exit		; all gaps filled, finished
+				; if not so, some pixels still set
+	LDA tmpmask
+fc_checkstart			; no continuation, init flag based on
+				; rightmost pixel:
+	LSR			; mask bit 0 to carry
+	BCC fc_nocont		; maskbit empty?
+	TXA			; pixel data
+	LSR			; pixel bit 0 to carry
+	BCS fc_nocont		; bit 0 set
+				; -> mask is 1 and pixel 0
+fc_cont
+	LDA fcont		; set flag for continuation
+	ORA #%00000010		; mark in bit 1, store it, make a push
+	STA fcont
+	BNE push_to_stack	; always non zero
+
+fc_cleared
+	LDA tmpmask		; pixel & mask -> 0
+	BEQ fc_exit		; but if mask=0 we are done (never push!)
+	CMP #$ff		; full pixel line mask and all pixels cleared
+	BNE fc_checkstart	; maybe a continuation ...
+				; 8 pixel line empty
+	LDA fcont		; continued gap?
+	AND #%00000010		; check bit 2
+	BEQ fc_cont		; new gap, start it and push on stack
+	RTS			; gap continued and already on stack, leave
+
+} else {
+	; OLD version
+
+	CMP tmpmask		; check for gaps
+	BEQ fc_exit		; all gaps filled or mask=0 finished
 
 	CMP #0			; all masked pixels cleared?
 	BNE fc_checkstart	; if not so, some pixels still set,
@@ -1815,6 +1858,7 @@ fill_check
 	BEQ fc_checkcont	; maybe a continuation ...
 
 fc_checkstart
+	LDA tmpmask
 				; no continuation, init flag based on
 				; rightmost pixel:
 	LSR			; mask bit 0 to carry
@@ -1835,6 +1879,8 @@ fc_checkcont			; 8 pixel line empty
 	AND #%00000010		; check bit 2
 	BEQ fc_cont		; new gap, start it and push on stack
 	RTS			; gap continued and already on stack, leave
+}
+
 
 fc_nocont
 	LDA fcont		; clear continuation flag
@@ -1842,9 +1888,30 @@ fc_nocont
 	STA fcont
 
 push_to_stack
+	CLC			; fstack points to top of stack
+	LDA fstack		; to next free stack element
+	ADC #4			; entry size
+	STA fstack
+	BCC +
+	INC fstack+1
++
+	LDA strbot+1		; check stack space
+	CMP fstack+1
+	BCS ++			; strbot MSB >= fstack MSB, need more to check
+				; strbot MSB < fstack MSB
+out_of_memory			
+	JSR gexit
+	LDX #$10		; out of memory error
+	JMP (v_baserr)		; basic error handler
+++	BNE fc_put		; <> -> (strbot > fstack)
+	LDA fstack		; MSB equal, check LSB
+	CMP strbot
+	BCS out_of_memory	; fstack collides with string heap!
+
+fc_put
 	TYA			; y-line (value 0-7) merged with
 	ORA caddr		; graphic address low (bit 0-2 always empty)
-	LDY #0			; stack structure index
+	LDY #0			; stack structure index, on next free element
 	STA (fstack),y
 	INY
 	LDA caddr+1
@@ -1856,25 +1923,6 @@ push_to_stack
 	LDA x8			; 8x8 block position
 	STA (fstack),y
 	
-	CLC			; next stack element
-	LDA fstack
-	ADC #4			; entry size
-	STA fstack
-	BCC +
-	INC fstack+1
-	
-+	LDA strbot+1		; check stack space
-	CMP fstack+1
-	BCS ++
-out_of_memory
-	JSR gexit
-	LDX #$10		; out of memory error
-	JMP (v_baserr)		; basic error handler
-++	BNE fc_exit		; exit (strbot > fstack)
-	LDA fstack
-	CMP strbot
-	BCS out_of_memory	; fstack collides with string heap!
-
 fc_exit	RTS
 	
 
