@@ -1762,10 +1762,12 @@ process_stack
 	EOR fmode		; according to set/reset
 	TAX			; keep it for later
 	AND tmpmask
+	BEQ +			; all bits unset, no need to keep
+				; on stack
 	CMP tmpmask
 	BEQ process_stack	; all gaps filled, next on stack
 
-	CLC			; keep entry on stack
+	CLC			; keep entry on stack, splitted unset pixels
 	LDA fstack
 	ADC #4			; entry size
 	STA fstack
@@ -1799,30 +1801,42 @@ fill_check
 	TAX			; save for later
 	AND tmpmask		; mask to fill
 	CMP tmpmask		; check for gaps
-	BEQ fc_exit		; no gaps, all filled
+	BEQ fc_exit		; all gaps filled, finished
+
 	CMP #0			; all masked pixels cleared?
-	BNE push_to_stack	; if not so, some pixels still set, no continuation
+	BNE fc_checkstart	; if not so, some pixels still set,
+				; no continuation and push
+
 	LDA tmpmask
 	CMP #$ff		; full pixel line mask and all pixels cleared
 	BEQ fc_checkcont	; maybe a continuation ...
 
+fc_checkstart
 				; no continuation, init flag based on
 				; rightmost pixel:
 	LSR			; mask bit 0 to carry
-	BCC push_to_stack	; maskbit
+	BCC fc_nocont		; maskbit empty?
 	TXA			; pixel data
 	LSR			; pixel bit 0 to carry
-	BCS push_to_stack	; bit 0 set
--	LDA fcont		; flag:
+	BCS fc_nocont		; bit 0 set
+				; -> mask is 1 and pixel 0
+fc_cont
+	LDA fcont		; flag:
 	ORA #%00000010		; mark in bit 1, store it, make a push
 	STA fcont
 	BNE push_to_stack	; always non zero
 
+
 fc_checkcont			; 8 pixel line empty
 	LDA fcont		; continued gap?
 	AND #%00000010		; check bit 2
-	BEQ -			; new gap, start it and push on stack
+	BEQ fc_cont		; new gap, start it and push on stack
 	RTS			; gap continued and already on stack, leave
+
+fc_nocont
+	LDA fcont		; clear continuation flag
+	AND #%11111101		; clear bit 2
+	STA fcont
 
 push_to_stack
 	TYA			; y-line (value 0-7) merged with
@@ -1857,10 +1871,6 @@ out_of_memory
 	LDA fstack
 	CMP strbot
 	BCS out_of_memory	; fstack collides with string heap!
-
-	LDA fcont		; clear continuation flag
-	AND #%11111101		; clear bit 2
-	STA fcont
 
 fc_exit	RTS
 	
