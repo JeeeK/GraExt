@@ -6,7 +6,7 @@
 	!text "1.28" ; current version
 }
 ; revisions:
-;	2016-09-09 v 1.28
+;	2016-09-10 v 1.28
 ;	2016-07-13 v 1.27
 ;	2016-07-09 v 1.26
 ;	2016-06-21 v 1.25
@@ -1567,15 +1567,15 @@ fill
 	SBC #0			; take borrow
         STA fstack+1
 
-	JSR position
-	LDA xh
+	JSR position		; graphic position in (gaddr)+Y, bit X
+
+	LDA xh			; setup 8x8 block index (x8)
 	LSR			; high bit into C
 	LDA xl
 	ROL			; take high bit
 	LSR
 	LSR			; finally divide by 8
-				; = index of 8x8 block in bitmap
-	STA x8
+	STA x8			; = index of 8x8 block in bitmap
 
 	; set fmode (from mode)
 	LDA savemo
@@ -1589,15 +1589,14 @@ fill
 
 	JSR ginit		; map in bitmap memory
 
-	LDA (gaddr),y
+	LDA (gaddr),y		; graphic position in Y (in index in 8x8 block)
 	EOR fmode
-	STA tmp1		; pixels
-;	STY ysav		; gra position y (in index in 8x8 block)
+	STA tmp1		; bitmap, for later usage
 
-	AND bitmask,x		; exact start pixel
+	AND bitmask,x		; test start pixel
 	BEQ +			; not set
 f_exit
-	JMP gexit
+	JMP gexit		; leave if start pixel is already set
 +
 f_start				; the start: in mid of a line to fill ...
 	LDA #0
@@ -1648,7 +1647,7 @@ stepleft8
 next_block
 	INC x8			; step right a block
 	LDA x8
-	CMP #40			; last horizontal block?
+	CMP #40			; beyond last horizontal block?
 	BCS process_stack	; done if right screen border
 	; C = 0
 	LDA gaddr		; advance to block right
@@ -1660,19 +1659,20 @@ next_block
 	STA tmpmask
 	LDA (gaddr),y		; pixel data
 	EOR fmode		; set/reset mode
-;	sta tmp1		; no used!? 
-				;search right border
 	BEQ to_right		; empty -> finally to to_right
 	JSR bitposr		; search right border
 	LDA maskright0,x	; mask out the right part
 	AND tmpmask		; shorten mask accordingly
 	STA tmpmask
 	BEQ process_stack	; done if bit 7 (leftmost) is set
-				; continue to right ...
+				; leading to 0 mask (fill_check wont't
+				; handle this special case)
 
+				; continue to fill to right ...
 to_right			; fill loop towards right border
 	LDA tmpmask		; fill mask
-				; assert: (pixel & tempmask) == 0
+				; assert:    (bitmap & tempmask) == 0
+				;         || (bitmap & tempmask) == tempmask
 	EOR (gaddr),y		; set/reset to fill
 	STA (gaddr),y		; into bitmap - the actual fill action!
 	
@@ -1789,16 +1789,16 @@ pop_stack
 	AND tmpmask		; 00011100 -> 00011000
 	EOR #$ff		; 11100111
 				; pixel outside tmpmask now set!
-	LDX #$ff
+	LDX #$ff		; pixel gap search: first one from left
 -	INX
 	ASL			; counting from left
-	BCS -			; find first unset pixel ...
-				; X is bit number the unset pixel
+	BCS -			; loop if pixel is set
+				; X has the bit number of the unset pixel
 	LDA (gaddr),y		; setup value for processing a new line
 	EOR fmode		; set/reset mode
 	STA tmp1		; temporary bitmap pixels
 	JMP f_start		; long (to far away) jump to fill line start
-;	BCC f_start		; always
+;	BCC f_start		; not used: short variant, always (C=0 from above)
 
 
 ; Check upper or lower fill path
@@ -1809,10 +1809,6 @@ fill_check
 	EOR fmode		; pixel data
 	TAX			; save for later
 	AND tmpmask		; mask to fill
-
-!if 1 {
-	; NEW version
-
 	BEQ fc_cleared		; all masked pixels cleared?
 	CMP tmpmask		; check for gaps
 	BEQ fc_exit		; all gaps filled, finished
@@ -1834,7 +1830,8 @@ fc_cont
 
 fc_cleared
 	LDA tmpmask		; pixel & mask -> 0
-	BEQ fc_exit		; but if mask=0 we are done (never push!)
+;	BEQ fc_exit		; but if mask=0 we are done (never push!)
+				; the caller asserts that this never happens
 	CMP #$ff		; full pixel line mask and all pixels cleared
 	BNE fc_checkstart	; maybe a continuation ...
 				; 8 pixel line empty
@@ -1842,45 +1839,6 @@ fc_cleared
 	AND #%00000010		; check bit 2
 	BEQ fc_cont		; new gap, start it and push on stack
 	RTS			; gap continued and already on stack, leave
-
-} else {
-	; OLD version
-
-	CMP tmpmask		; check for gaps
-	BEQ fc_exit		; all gaps filled or mask=0 finished
-
-	CMP #0			; all masked pixels cleared?
-	BNE fc_checkstart	; if not so, some pixels still set,
-				; no continuation and push
-
-	LDA tmpmask
-	CMP #$ff		; full pixel line mask and all pixels cleared
-	BEQ fc_checkcont	; maybe a continuation ...
-
-fc_checkstart
-	LDA tmpmask
-				; no continuation, init flag based on
-				; rightmost pixel:
-	LSR			; mask bit 0 to carry
-	BCC fc_nocont		; maskbit empty?
-	TXA			; pixel data
-	LSR			; pixel bit 0 to carry
-	BCS fc_nocont		; bit 0 set
-				; -> mask is 1 and pixel 0
-fc_cont
-	LDA fcont		; flag:
-	ORA #%00000010		; mark in bit 1, store it, make a push
-	STA fcont
-	BNE push_to_stack	; always non zero
-
-
-fc_checkcont			; 8 pixel line empty
-	LDA fcont		; continued gap?
-	AND #%00000010		; check bit 2
-	BEQ fc_cont		; new gap, start it and push on stack
-	RTS			; gap continued and already on stack, leave
-}
-
 
 fc_nocont
 	LDA fcont		; clear continuation flag
