@@ -1811,15 +1811,16 @@ fill_check
 	TXA			; pixel data
 	LSR			; pixel bit 0 to carry
 	BCS push_to_stack	; bit 0 set
-	LDA fcont		; flag:
+-	LDA fcont		; flag:
 	ORA #%00000010		; mark in bit 1, store it, make a push
 	STA fcont
 	BNE push_to_stack	; always non zero
 
-fc_checkcont
-	LDA fcont
+fc_checkcont			; 8 pixel line empty
+	LDA fcont		; continued gap?
 	AND #%00000010		; check bit 2
-	BNE fc_exit		; gap continued, already on stack
+	BEQ -			; new gap, start it and push on stack
+	RTS			; gap continued and already on stack, leave
 
 push_to_stack
 	TYA			; y-line (value 0-7) merged with
