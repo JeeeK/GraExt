@@ -3,10 +3,12 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 !macro version {
-	!text "1.27a" ; current version
+	!text "1.28" ; current version
 }
 ; revisions:
+;	2016-08-29 v 1.28
 ;	2016-07-13 v 1.27
+;	2016-07-09 v 1.26
 ;	2016-06-21 v 1.25
 ;	2016-06-16 v 1.24
 ;	2016-05-29 v 1.23
