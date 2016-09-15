@@ -120,17 +120,21 @@ tmp2	= $96		; =kh, temp. var. in context horiz. lines
 
 dxl	= $AB		; x delta, low+high
 dxh	= $A7
+x8	= dxh		; 8x8 block index: (xh/xl) : 8 (fill context)
 
 dy	= $A9		; y delta
 ysave	= dy		; y saved (hline context)
+tmpmask = dy		; temp. mask (fill context)
 
 ydir	= $A8		; y direction: 0 | !=0 ... down | up
 ylimit	= ydir		; y limit in a 8x8 block (hline context)
+fmode   = ydir		; mode mask: 0 | $FF (fill context)
 
 cl	= $A3		; dot count, low+high
 ch	= $A4
 ycount	= cl		; y count overall (hline context)
 hcount	= ch		; horizontal blocks (hline context)
+gpy	= cl		; graphic address Y register (fill context)
 
 gaddr	= $A5		; graphic address
 
@@ -303,11 +307,11 @@ exp_nonumber
 	LDA txtptr			; undo chrget
 	BNE +
 	DEC txtptr+1
-+	dec txtptr
++	DEC txtptr
 	JMP (savevexp)			; original routine	
 ;	JMP b_execexpr
 newfunc
-	jsr chrget
+	JSR chrget
 	CMP #'Z'
 	BNE +
 	JMP get
@@ -322,11 +326,11 @@ newfunc
 
 ; the most commonly used command placed at the end ...
 
-cmds	!text " UGCSMRTVHLP"		; first char. is a dummy
+cmds	!text " UFGCSMRTVHLP"		; first char. is a dummy
 cmdsend
 
 cmdaddr
-        !word unnew-co,graphic-co,char-co,setmode-co,move-co,relto-co
+        !word unnew-co,fill-co,graphic-co,char-co,setmode-co,move-co,relto-co
         !word to-co,vline-co,hline-co,line-co,plot-co
 
 author	!text 147,"GRA-EXT V"
@@ -350,10 +354,15 @@ ytabh
 
 ; for horiz. line
 
-maskleft !byte $ff,$7f,$3f,$1f,$0f,$07,$03,$01
+maskleft0
+maskleft
+	!byte $ff,$7f,$3f,$1f,$0f,$07,$03,$01
+	!byte $00
 
-maskright !byte $80,$c0,$e0,$f0,$f8,$fc,$fe,$ff
-
+maskright0
+	!byte $00
+maskright
+	!byte $80,$c0,$e0,$f0,$f8,$fc,$fe,$ff
 
 ;-----------------------------------------------------------------
 
@@ -844,7 +853,7 @@ hline
 	BEQ +
 	CLC
 	ADC y		; end position for y coord.
-	BCS +++
+	BCS +++		; > 255
 	CMP #ymax
 	BCC ++
 +++	JSR range_error
@@ -1537,27 +1546,178 @@ to
 
 ;-----------------------------------------------------------------
 
+fill
+        JSR getxy
+        STA xh		; save x/y
+        STY xl
+        STX y
+        STA savexh	; and store as cursor
+        STY savexl
+        STX savey
+
+	JSR position
+	LDA xh
+	LSR		; high bit into C
+	LDA xl
+	ROL		; take high bit
+	LSR
+	LSR		; finally divide by 8
+			; = index of 8x8 block in bitmap
+	STA x8
+
+	; set fmode (from mode)
+	LDA savemo
+	AND #3
+	TAX
+	DEX
+	BMI +		; mode = 0 -> invertmask: $FF
+	BEQ +		; mode = 1 -> invertmask: $00
+	DEX		; mode = 2 -> ? (same as mode=0)
++	STX fmode	; mode set or reset
+
+	JSR ginit	; map in bitmap memory
+
+	LDA (gaddr),y
+	EOR fmode
+	STA tmp1
+	STY gpy		; gra position y (in index in 8x8 block)
+
+	AND bitmask,x
+	BEQ +
+fexit	JMP gexit
++
+	LDA tmp1	; graphic data
+			; extent bitmask to the right
+	AND maskleft,x	; mask out left part, bits right from starting point remain
+	JSR bitposr	; find the first set bit from start to right (border)
+	LDA maskright0,x	; get a mask from the right border to left
+	STA tmpmask
+
+leftcont
+	LDA tmp1	; graphic data
+leftcont_a
+	AND maskright,x ; mask out right part, bits left from starting point remain
+	BEQ stepleft8	; no left border in this 8x8?
+	JSR bitposl
+	LDA maskleft0,x
+	AND tmpmask
+	STA tmpmask
+;	beq fexit	; should never happen
+	BNE toright	; always!
+
+stepleft8
+	DEC x8
+	BMI toright	; hit screen border
+	LDA #$ff
+	STA tmpmask
+	SEC 
+	LDA gaddr
+	SBC #8
+	BCS +
+	DEC gaddr+1
++	STA gaddr
+
+	; y left unchanged
+	LDA (gaddr),y
+	EOR fmode
+	STA tmp1
+	LDX #7
+	BNE leftcont_a
+	
+toright
+	; begin
+	;  fill byte
+	;  check above
+	;  check below
+	;  step block right
+	; until border right
+	; run stack
+; XXX
+
+	RTS
+
+; Get the pixel position of the first set pixel from the right.
+; 76543210  bit ->
+; XXXXXXXX
+; 01234567  -> index
+
+; 00000000 -> 0 -> $FF 
+; 10000000 -> 1 -> $7F
+; X1000000 -> 2 -> $3F
+; XX100000 -> 3 -> $1F
+; XXX10000 -> 4 -> $0F
+; XXXX1000 -> 5 -> $07
+; XXXXX100 -> 6 -> $03
+; XXXXXX10 -> 7 -> $01
+; XXXXXXX1 -> 8 -> $00
+
+; usage: lda maskleft0,X
+
+; speed consideration: for results from X 0 to 4 it is faster than
+; a table-driven approach.
+
+bitposl
+	LDX #$ff
+	CMP #0		; special case (no bit set at all)
+	BEQ +
+-	INX
+	ASL		; shift to left
+	BNE -		; until byte is empty
++	INX
+	RTS
+
+; Get the pixel position of the first set pixel from the left.
+; 76543210  bit ->
+; XXXXXXXX
+; 01234567  -> index
+
+; 00000000 -> 8 -> $FF
+; 00000001 -> 7 -> $FE
+; 0000001X -> 6 -> $FC
+; 000001XX -> 5 -> $F8
+; 00001XXX -> 4 -> $F0
+; 0001XXXX -> 3 -> $E0
+; 001XXXXX -> 2 -> $C0
+; 01XXXXXX -> 1 -> $80
+; 1XXXXXXX -> 0 -> $00
+
+; usage: lda maskright0,X
+
+; speed consideration: for results of X from 4 to 8 it is faster than
+; a table-driven approach.
+
+bitposr
+	LDX #8
+	CMP #0		; special case (no bit set at all)
+	BEQ +
+-	DEX
+	LSR		; shift to right
+	BNE -		; until byte is empty
++	RTS
+
+;-----------------------------------------------------------------
+
 unnew
 
-	lda bassta
-	sta str
-	lda bassta+1
-	sta str+1
-	ldy #1
-	tya
-	sta (str),y		; != 0
+	LDA bassta
+	STA str
+	LDA bassta+1
+	STA str+1
+	LDY #1
+	TYA
+	STA (str),y		; != 0
 
-	jsr b_rechain		; starting from bassta
+	JSR b_rechain		; starting from bassta
 				; result in (str)
-	clc			; str+1 -> new basic end
-	ldy str+1
-	lda str
-	adc #2
-	sta basend
-	bcc +
-	iny
-+	sty basend+1
-	jmp b_clr		; perform CLR
+	CLC			; str+1 -> new basic end
+	LDY str+1
+	LDA str
+	ADC #2
+	STA basend
+	BCC +
+	INY
++	STY basend+1
+	JMP b_clr		; perform CLR
 
 ;-----------------------------------------------------------------
 graext_end
