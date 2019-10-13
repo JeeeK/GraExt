@@ -1,7 +1,12 @@
     1 ifpeek(49153)+peek(49154)<>21thenload"ge",8,1
     2 ifpeek(49153)+peek(49154)=21thensys49152
-   50 &g1,5,0
-  100 &s2
+    6 dimt,d,x:deffnt(x)=int(x/16)*10+(xand15):goto10
+    7 t=fnt(peek(d+11))*10000+fnt(peek(d+10))*100+fnt(peek(d+9))+fnt(peek(d+8))/10:return
+    9 d=56576:poked+14,128orpeek(d+14):poked+15,127andpeek(d+15):poked+11,0:poked+10,0:poked+9,0:poked+8,0:return
+
+   10 dimi
+   50 &g1,5,0:&s2
+  100 ti$="000000":gosub9
   110 fori=000to319
   120 &l0,0,i,199:next
   150 fori=199to0step-1
@@ -10,4 +15,5 @@
   220 &vi,0,199:next
   250 fori=000to199
   260 &h0,i,319:next
- 9999 wait198,1:&g0
+ 9997 tt=ti:gosub7:printtt/60,t
+ 9998 wait198,1:&g0

@@ -303,6 +303,21 @@ im 1-MHz-Modus im Vergleich zum "normalen" C64 ohne HW-Erweiterung, aber im
 Turbo-Modus wird das Maximum der möglichen Geschwindigkeit heraus geholt.
 
 
+Bugs
+----
+
+Version 1.18
+- - - - - -
+
+ * Parser hat das Problem, ein ":" am Zeilenanfang führt zu
+   einem "Syntax Error".
+   Ursache:
+   Der CHRGET-Status nach der Prüfung von "&" wird nicht
+   der Status korrekt erhalten, wenn es kein "&"-Zeichen ist
+   und das Parsing ans ROM weitergegeben wird.
+
+
+
 
 
 Fill-Demo
@@ -412,4 +427,19 @@ Nach &V Optimierung in 1.27
 10x &VX,0,199           52.85 s (TI)
 10x &LX,199,X,0         57.00 s (TI)    Parsing 4. Parameter
 10x &LX,0,X,199         57.05 s (TI)    Parsing 4. Parameter und Tausch der Y-Werte
+
+
+
++++++++++++ Demos
+
+GraExt-Version  1.18            1.29
+                TI/RTC          TI/RTC
+--------------------------------------------
+DEMO1           21,0/25,2       20,5/22,7
+DEMO2           15,0/19,0       15,2/16,8
+DEMO-V          55,3/55,5       53,4/53,5
+DEMO-H-V        -/-             6,6/6,6
+                5,6/5,5         5,4/5,3
+                -/-             0,07/0,4
+--------------------------------------------
 
