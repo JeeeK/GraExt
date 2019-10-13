@@ -1,4 +1,5 @@
-    1 ifpeek(49153)+peek(49154)=21thensys49152
+    1 ifpeek(49153)+peek(49154)<>21thenload"ge",8,1
+    2 ifpeek(49153)+peek(49154)=21thensys49152
    10 l=4*8
    20 y=200-l
    50 &g1,5,0

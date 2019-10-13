@@ -56,7 +56,7 @@ tag:
 clean:
 	rm $(F).o
 
-x.d64 i: $(F).o $(FRUN).prg gliding-lines.prg debug.prg demo1.prg demo2.prg demo-h-v.prg demo-v.prg gliding-lines.prg fill-demo.prg
+x.d64 i: $(F).o $(FRUN).prg gliding-lines.prg debug.prg demo-v.prg demo-h-v.prg demo1.prg demo2.prg gliding-lines.prg fill-demo.prg fill-demo2.prg
 	cp -p $(F).o ge.prg
 	FILE2DISK x.d64
 

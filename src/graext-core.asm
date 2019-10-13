@@ -3,9 +3,10 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 !macro version {
-	!text "1.28" ; current version
+	!text "1.29" ; current version
 }
 ; revisions:
+;	2019-10-10 v 1.29
 ;	2016-09-10 v 1.28
 ;	2016-07-13 v 1.27
 ;	2016-07-09 v 1.26
@@ -20,11 +21,12 @@
 ;	1986-03-24 v 1.17
 ;	1985       v 0.00 - 1.16
 ;
-; the original source has been lost.
-; development has based on the implemention
-; done on a forth-64 written with its forth assembler.
-; the code has been pulled out from there and enriched
-; with some glue code to get a basic extension.
+; the initial development is based on the implemention
+; done in a Forth environment written with a common 
+; 6502 forth assembler.
+; later, the code has been pulled out from there, relocated and 
+; enriched with some glue code to finally form the first 
+; basic extension.
 
 ; command dispatcher style JMP/RTS
 ;	(if defined)
@@ -63,8 +65,8 @@ basic_rom = $A000	; start of BASIC ROM
 
 b_clr = $A660		; CLR command
 b_interpreter = $A7AE	; interpreter loop
-b_execstatement = $A7E7	; process statement
-b_execexpr =$AE92	; process expression
+b_execstatement = $A7E7	; process statement (after chrget) - not used
+b_execexpr =$AE92	; process expression - not used
 b_getcomma = $AEFD	; read comma from basic text
 b_illquant = $B248	; error "illegal quantity"
 b_syntaxerror = $AF08	; error "syntax"
@@ -151,7 +153,8 @@ fstack = gcol	; fill stack pointer (fill context)
 
 ; static ram areas
 
-saveverr = $0334	; original v_baserr
+savevpars = $0334	; original v_bascmd
+saveverr = savevpars+2	; original v_baserr
 savevstp = saveverr+2	; original v_basstp
 savevexp = savevstp+2	; original v_basexp
 savexl	= savevexp+2	; the graphic cursor: x low 
@@ -192,7 +195,16 @@ mc_sim  = $10                   ; ROM-Simulation Bit
 ; initialize extension
 
 init
-        LDA #<(parse)	; basic interpreter parser hook
+        LDA v_bascmd	; check if hooks are already 
+        LDX v_bascmd+1	; in place 
+	CMP #<(parse)
+	BNE +
+	CPX #>(parse)
+	BEQ ++		; already hooked
+
++       STA savevpars	; save old vector
+	STX savevpars+1
+	LDA #<(parse)	; basic interpreter parser hook
         STA v_bascmd	; for commands
         LDA #>(parse)
         STA v_bascmd+1
@@ -224,7 +236,7 @@ init
         LDA #>(error)
         STA v_baserr+1
 
-	LDX #0		; set graphic cursor to (0,0)
+++	LDX #0		; set graphic cursor to (0,0)
 	STX savexl
 	STX savexh
 	STX savey
@@ -246,19 +258,29 @@ stop
 nostop
 	JMP (savevstp)		; to original vector
 
+
+;-----------------------------------------------------------------
+
+; undo chrget
+
+undo_chrget
+	LDA txtptr		; decrement text pointer by 1
+	BNE +
+	DEC txtptr+1
++	DEC txtptr
+	RTS
+
 ;-----------------------------------------------------------------
 
 ; start parsing an extension command ...
 
 parse
         JSR chrget			; next char.
-	PHP
         CMP #'&'			; command prefix
         BEQ newcmd
-        PLP
-        JMP b_execstatement
+	JSR undo_chrget
+	JMP (savevpars)
 newcmd
-	PLP
         JSR chrget			; command character
 
         LDY #(cmdsend-cmds)		; map character to
@@ -308,10 +330,7 @@ express
 exp_nonumber
         CMP #'&'			; command prefix
         BEQ newfunc
-	LDA txtptr			; undo chrget
-	BNE +
-	DEC txtptr+1
-+	DEC txtptr
+	JSR undo_chrget
 	JMP (savevexp)			; original routine	
 ;	JMP b_execexpr
 newfunc
@@ -339,7 +358,7 @@ cmdaddr
 
 author	!text 147,"GRA-EXT V"
 	+version
-	!text " 1986,2016 JOHANN@KLASEK.AT",0
+	!text " 1986,2019 JOHANN@KLASEK.AT",0
 
 bitmask
 	!byte $80, $40, $20, $10, $08, $04, $02, $01
@@ -568,35 +587,48 @@ position
 
 ;-----------------------------------------------------------------
 
-; line y up, x right, dx < dy (case 1)
+; swap tupel xl,xh <-> xendl,xendh
+
+swap_x_xend
+        LDX xendl	; swap x, xend
+        LDY xl
+        STX xl
+        STY xendl
+
+        LDX xendh
+        LDY xh
+        STY xendh
+        STX xh
+	RTS
+
+
+;-----------------------------------------------------------------
+
+; line y up, x left, dx < dy (case 1)
 
 line_up_steep
         JSR position	; x,y
-loop_yup_xright
+loop_yup_xleft
         JSR gchange	; pixel
 
         CLC		; k += dx
         LDA kl
         ADC dxl		; dxh is 0, because dx < dy
         STA kl
-        BCS ++		; k > 255
+        BCC +		; k >= 0 ->
 
-        CMP dy
-        BCC +		; k >= dy ->
-
-++	SBC dy		; k -= dy
+++	SBC dy		; k -= dy (C=1)
         STA kl
 
-        INX		; x++
-        CPX #8
-        BNE +
-	; C=1
-        LDX #0		; x overflow, wrap around
-        LDA gaddr	; x+8: gaddr += 8
-        ADC #8-1	; C already set by CPX
+ 	DEX		; x--
+        BPL +
+        LDX #7		; wrap around
+	SEC
+        LDA gaddr	; x-8: gaddr -= 8
+        SBC #8
         STA gaddr
-        BCC +
-        INC gaddr+1
+        BCS +
+        DEC gaddr+1
 
 +	DEY		; y--
         BPL +++
@@ -610,39 +642,36 @@ loop_yup_xright
         LDY #7		; wrap around
 
 +++	DEC cl		; until c=0
-        BNE loop_yup_xright
+        BNE loop_yup_xleft
         JMP gexit
 
 
 ;-----------------------------------------------------------------
 
-; line x right, y up, dx > dy (case 2)
+; line x left, y up, dx > dy (case 2)
 
 line_up_flat
         JSR position	; x,y
 	LDA cl		; counter adjustment for
-	BEQ +		; dec-dec-counting
+	BEQ +		; prepare for dec-dec-counting
 	INC ch
 +
-loop_xright_yup
+loop_xleft_yup
         JSR gchange	; pixel
 
         CLC		; k += dy
         LDA kl
         ADC dy
         STA kl
-        BCC ++
+        BCC +		; k < 0
         INC kh
+	BMI +		; k < 0
 
-++	CMP dxl		; k > dx?
-        LDA kh
-        SBC dxh
-        BCC +
-
-        STA kh		; k -= dx
-        LDA kl
-        SBC dxl
+        SBC dxl		; k -= dx (A = kl, C=1)
         STA kl
+        LDA kh
+        SBC dxh		
+        STA kh
 
         DEY		; y--
         BPL +
@@ -655,21 +684,20 @@ loop_xright_yup
         STA gaddr+1
 	LDY #7		; wrap around
 
-+	INX		; x++
-        CPX #8		; x overflow?
-        BNE ++
-	; C=1
-        LDX #0		; wrap around
-        LDA gaddr	; x+8: gaddr += 8
-        ADC #8-1	; C already set by CPX
++	DEX		; x--
+        BPL +++
+        LDX #7		; wrap around
+	SEC
+        LDA gaddr	; x-8: gaddr -= 8
+        SBC #8
         STA gaddr
-        BCC ++
-        INC gaddr+1
-++
+        BCS +++
+        DEC gaddr+1
++++
 	DEC cl		; c--
-        BNE loop_xright_yup
+        BNE loop_xleft_yup
         DEC ch		; adjusted high which allows this
-        BNE loop_xright_yup
+        BNE loop_xleft_yup
 
         JMP gexit
 
@@ -677,33 +705,30 @@ loop_xright_yup
 
 ;-----------------------------------------------------------------
 
-; line x right, y down, dx > dy (case 3)
+; line x left, y down, dx > dy (case 3)
 
 line_down_flat
         JSR position	; x,y
 	LDA cl		; counter adjustment for
-	BEQ +		; dec-dec-counting
+	BEQ +		; prepare for dec-dec-counting
 	INC ch
 +
-loop_xright_ydown
+loop_xleft_ydown
         JSR gchange	; pixel
 
         CLC		; k += dy
         LDA kl
         ADC dy
         STA kl
-        BCC ++
+        BCC +		; k < 0
         INC kh
+	BMI +		; k < 0
 
-++	CMP dxl		; k > dx
-        LDA kh
-        SBC dxh		; k -= dx
-        BCC +
-
-        STA kh
-        LDA kl
-        SBC dxl
+        SBC dxl		; k -= dx (A = kl, C=1)
         STA kl
+        LDA kh
+        SBC dxh		
+        STA kh
 
         INY		; y++
         CPY #8
@@ -717,21 +742,20 @@ loop_xright_ydown
         STA gaddr+1
         LDY #0		; wrap around
 
-+	INX		; x++
-        CPX #8		; x overflow ?
-        BNE +++
-	; C=1
-        LDX #$00	; wrap around
-        LDA gaddr	; gaddr += 8
-        ADC #$08-1	; C always set by CPX
++	DEX		; x--
+        BPL +++
+        LDX #7		; wrap around
+	SEC
+        LDA gaddr	; x-8: gaddr -= 8
+        SBC #8
         STA gaddr
-        BCC +++
-        INC gaddr+1
+        BCS +++
+        DEC gaddr+1
 +++
 	DEC cl		; c--
-        BNE loop_xright_ydown
-        DEC ch		; adjusted high which allows this
-        BNE loop_xright_ydown
+	BNE loop_xleft_ydown
+	DEC ch		; adjusted high which allows this
+        BNE loop_xleft_ydown
 
         JMP gexit
 
@@ -742,28 +766,27 @@ loop_xright_ydown
 
 line_down_steep
         JSR position	; x,y
-loop_ydown_xright
+loop_ydown_xleft
         JSR gchange	; pixel
 
         CLC		; k += dx
         LDA kl
         ADC dxl		; dxh is 0, because dx < dy
         STA kl
-        BCS ++
-        CMP dy		; k > dy?
-        BCC +
-++	SBC dy		; k -= dy
+        BCC +		; k >= 0 ->
+
+	SBC dy		; k -= dy, C=1
         STA kl
 
-        INX		; x++
-        CPX #8
-        BNE +		; x overflow?
-        LDX #0		; wrap around
-        LDA gaddr	; x+9: gaddr += 8
-        ADC #8-1	; C already set by CPX
+ 	DEX		; x--
+        BPL +
+        LDX #7		; wrap around
+	SEC
+        LDA gaddr	; x-8: gaddr -= 8
+        SBC #8
         STA gaddr
-        BCC +
-        INC gaddr+1
+        BCS +
+        DEC gaddr+1
 
 +	INY		; y++
         CPY #8		; y overflow?
@@ -778,7 +801,7 @@ loop_ydown_xright
 
 +++	DEC cl		; c--
 			; until c=0
-        BNE loop_ydown_xright
+        BNE loop_ydown_xleft
         JMP gexit
 
 
@@ -843,48 +866,39 @@ hline
 	SBC #<xmax
 	BCC +
 ++	JSR range_error
+			; XXX xend=xmax-1 ?
 +
         STX savexh
-        STY savexl	; also save as cursor
+        STY savexl	; also save as final cursor
 
 	LDA #0		; default thickness 0 (means 1 pixel)
 	STA ycount
-	JSR $0079	; chargot
-	BEQ +		; command end? no optional param.
+	JSR chrgot	; last char. again
+	BEQ +++		; command end? no optional param.
 	JSR b_getcomma8bit
 	TXA		; optional 8-bit parameter
 	STA ycount	; hline thickness
-	BEQ +
+	BEQ +++		; 0 means 1 pixel
 	CLC
 	ADC y		; end position for y coord.
-	BCS +++		; > 255
+	BCS +		; > 255
 	CMP #ymax
-	BCC ++
-+++	JSR range_error
-++
-+
-        JSR ginit	; map in graphic memory
-	BNE hl_noxswap	; ginit left with Z=0
+	BCC +++
++			; C=1 from ADC or CMP before
+	JSR range_error	; corrupts A
+			; XXX ycount=ymax-y-1 ?
+			; xend >= x
+	BCS hl_noxswap	; always
 
 hline_start
-        LDA xendl
-        CMP xl
-        LDA xendh
-        SBC xh
-        BCS hl_noxswap	; xend < x ->
-
-        LDX xendl	; swap x, xend
-        LDA xl
-        STX xl
-        STA xendl
-
-        LDX xendh
-        LDY xh
-        STY xendh
-        STX xh
+	JSR swap_x_xend	; xend < x, entry from line
+	
 hl_noxswap
+			; xend > x
++++
 	INC ycount	; count to 0
-hl_start
+        JSR ginit	; map in graphic memory
+
         JSR position	; graphic position x,y
 
 	LDA gaddr	; save position for vertical
@@ -987,7 +1001,7 @@ vline
         STA savexh	; save as cursor too
         STY xl
         STY savexl
-        STX yend	; inital point is endpoint
+        STX yend	; initial point is endpoint
 
         JSR b_getcomma8bit
 			; get length
@@ -999,26 +1013,27 @@ vline
         ADC yend	; length + initial point is startpoint
 	BCS vline_iq	; > 255
         CMP #ymax	; outside?
+	TAY		; keep startpoint
         BCC +
 vline_iq
-        JSR range_error
-+	STA y		; startpoint
-
-	STA savey	; set cursor y position
-        JSR ginit	; map in graphic memory
-	BNE vl_start	; ginit left with Z=0
-			; skip following, because y, yend are already ordered
+        JSR range_error ; corrupts A
+			; XXX Y = ymax-1 ?
++	STY y		; startpoint
+	STY savey	; set cursor y position
+	CLC
+	BCC +++		; skip following, because y, yend are already ordered
 
 vline_start		; entry point from line command (only)
-        LDA y
-        CMP yend
-        BCS vl_noyswap	; yend > y ->
-        LDA y		; swap y, yend
-        LDX yend
-        STA yend
-        STX y
+	LDA y		; order of y, yend is not defined
+	CMP yend
+	BCS vl_noyswap	; yend > y ->
+	LDA y		; swap y, yend
+	LDX yend
+	STA yend
+	STX y
 vl_noyswap
 			; startpoint is below the endpoint
++++	JSR ginit	; map in graphic memory
 
 vl_start
         JSR position	; graphic position x,y
@@ -1068,41 +1083,31 @@ line_start
         STX savey
         STX yend
 
-        JSR ginit	; map in graphic memory
-
         LDY #$00	; initialize to 0
         STY ydir
         STY kl
         STY kh
 
         SEC
-        LDA xendl	; calculate dx
-        SBC xl
+        LDA xl		; calculate dx
+        SBC xendl
         STA dxl
-        LDA xendh
-        SBC xh
+        LDA xh
+        SBC xendh
         STA dxh
 
-        BCS li_xend_right
+        BCS li_xend_left
 	; dx != 0
-        TYA		; negate dx
+			; negate dx:
+        TYA		; Y=A=0
         SEC		; dx = 0 - dx
         SBC dxl
         STA dxl
-        TYA
+        TYA		; Y=A=0
         SBC dxh
         STA dxh
 			; C=0 always, needed later
-        LDX xl		; swap x low
-        LDY xendl
-        STX xendl
-        STY xl
-
-        LDX xh		; swap x high
-        LDY xendh
-        STX xendh
-        STY xh
-
+	jsr swap_x_xend
         LDX y		; swap y
         LDY yend
         STX yend
@@ -1111,9 +1116,9 @@ line_start
         BCC li_x_different
 			; C=0 always (from negation before)
 
-li_xend_right
-        LDA dxl		; dx = 0?
-        ORA dxh
+li_xend_left
+        		; A already contains dxh
+        ORA dxl		; dx = 0?
         BNE li_x_different
         JMP vline_start	; vertical line case
 
@@ -1121,15 +1126,15 @@ li_x_different
         SEC		; calculate dy
         LDA yend
         SBC y
-        BCS li_y_right
-        EOR #$FF	; negate dy (two's complement)
+        BCS li_y_right	; yend >= y?
+        EOR #$FF	; no, negate dy (two's complement)
         ADC #$01	; C=0
-        STA ydir	; flag y goes up
+        STA ydir	; always not 0: flag y goes up
 
 li_y_right
         STA dy
         BNE +
-	LDA #0
+	LDA #0		; line thickness = 1
 	STA ycount
         JMP hline_start	; horizontal line case
 +
@@ -1145,8 +1150,12 @@ li_y_right
 line_steep
         INX	
         STX cl		; c = dy+1
-        LSR		; k = dy/2
-        STA kl
+        LSR		; dy/2
+	EOR #$FF	; one's complement
+        STA kl		; k = -dy/2 -1
+
+        JSR ginit	; map in graphic memory
+
         LDA ydir
         BNE +
         JMP line_down_steep	; y down, steep
@@ -1162,11 +1171,16 @@ line_flat
 +	STX cl		; c = dx+1
         STY ch
 
-        LSR		; k = dx/2
+        LSR		; dx/2 high
+	EOR #$FF	; one's complement
         STA kh
         LDA dxl
-        ROR		; dx/2
-        STA kl
+        ROR		; dx/2 low
+	EOR #$FF	; one's complement
+        STA kl		; k = -dx/2 - 1
+
+        JSR ginit	; map in graphic memory
+
         LDA ydir	
         BNE +
         JMP line_down_flat	; y down, flat
@@ -1211,18 +1225,21 @@ move
 
 ;-----------------------------------------------------------------
 
-; never touch X, Y
+; never touches X, Y, C-flag
+; on exit: A corrupted, Z=0
+
 range_error
 	LDA savemo
 	AND #$F0
 	BNE +
 	PLA			; cleanup JSR
-	PLA
+	PLA			; highbyte of return address >0
 -	RTS			; error mode 0: do nothing, back to caller before
 				; error mode 2: cut value: control back
 				; to handle value correction
+				; Z=0
 +	AND #$20
-	BNE -
+	BNE -			; Z=0
 	PLA			; cleanup JSR
 	PLA
 setmode_error
@@ -1242,14 +1259,14 @@ setmode
 				; 3-5 -> 16-18
 				; put A's bit 4-7 into savemo
 	EOR savemo		; ********
-	AND #$F0		; ****0000
+	AND #%11110000		; ****0000
 	EOR savemo		; AAAAmmmm
 	STA savemo		; 
 	RTS
 
 +	TXA
 	EOR savemo		; put A's bit 0-3 into savemo
-	AND #$0F
+	AND #%00001111
 	EOR savemo
 	STA savemo
 setmode_enter
@@ -1261,11 +1278,11 @@ modereset
         STA gchange_op+2
         LDA #<(nbitmask)
         STA gchange_op+1
-        LDA #$3D		; AND abs,X
+        LDA #$3D		; opcode AND abs,X
         STA gchange_op
-        LDA #$31		; AND (zp),Y
+        LDA #$31		; opcode AND (zp),Y
         STA gmask_op
-        LDA #$FF		; EOR $#FF, invertieren
+        LDA #$FF		; mask, EOR $#FF, inverting
         STA gmask_flip+1
         RTS
 
@@ -1276,11 +1293,11 @@ modeset
         STA gchange_op+2
         LDA #<(bitmask)
         STA gchange_op+1
-        LDA #$1D		; OR abs,X
+        LDA #$1D		; opcode OR abs,X
         STA gchange_op
-        LDA #$11		; OR (zp),Y
+        LDA #$11		; opcode OR (zp),Y
         STA gmask_op
-        LDA #$00		; EOR #$00, nicht invertieren
+        LDA #$00		; mask, EOR #$00, not inverting
         STA gmask_flip+1
         RTS
 
@@ -1289,11 +1306,11 @@ modetoggle
         STA gchange_op+2
         LDA #<(bitmask)
         STA gchange_op+1
-        LDA #$5D		; EOR abs,X
+        LDA #$5D		; opcode EOR abs,X
         STA gchange_op
-        LDA #$51		; EOR (zp),Y
+        LDA #$51		; opcode EOR (zp),Y
         STA gmask_op
-        LDA #$00		; EOR #$00, nicht invertieren
+        LDA #$00		; mask, EOR #$00, not inverting
         STA gmask_flip+1
         RTS
 
@@ -1347,7 +1364,7 @@ get
         CLI
 	TYA
 	BEQ +
-	LDY #1		; <> 0 -> alway return 1
+	LDY #1		; <> 0 -> always return 1
 +	JMP b_byte2fac	; still on expr.'s last character
 
 ;-----------------------------------------------------------------
@@ -1496,7 +1513,7 @@ char_hires
 +	TAX		; save char. for later
         LDA prozport	; save prozport state
 	PHA
-        LDA #$21	; char. rom, no basic and kernal rom
+        LDA #%00100001	; char. rom, no basic and kernal rom
         SEI
         STA prozport	; char. rom base = $D000
         LDA #($D0 >> 3)	; $D0/8   1101 0000 -> 0001 1010

@@ -6,6 +6,10 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+        2019-10-11 v 1.29               Optimierung &L (Bresenham, X-Dekrementierung).
+                                        Grafik-Speichereinblendung mit Interruptsperre
+                                        minimiert.
+                                        Source-Doku. korr. und erweitert.
         2016-09-10 v 1.28               Funktion &F (Fill) ergänzt.
 	2016-07-13 v 1.27		&V geschwindigkeitsoptimiert.
 	2016-07-09 v 1.26		Funktionen &X,&Y,&Z(x,y) ergänzt.
@@ -66,9 +70,8 @@ ToDo:
 Wunschliste:
 
  * Grafik löschen separat und besonders schnell!
- * Optimierungen: Line, zu niedrigen Koordinaten mit
-        Dekremetieren und Zero-Bedingung statt Inkremtieren
-        mit explizitem Vergleich.
+ * Box
+ * Char mit Pixel-Positionierung
  * Circle
  * Clipping: trotzdem Zeichnen, aber am Rand aufhören.
         Echtes Clipping oder nur Koordinaten abschneiden?
@@ -76,6 +79,9 @@ Wunschliste:
  * Multicolor?
 
 erledigt:
+ * Optimierungen: Line: zu niedrigen Koordinaten mit
+        Dekremetieren und Zero-Bedingung statt Inkremtieren
+        mit explizitem Vergleich. -> ab 1.29
  * Fill -> ab 1.28
  * Grafikcursor auslesen -> ab 1.26
  * GETXY-Funktion -> ab 1.26
@@ -85,36 +91,54 @@ erledigt:
  * Grafik einschalten ohne löschen. -> ab 1.22
 
 
+
+
 Geschichte:
 
-Die Wurzeln der Erweiterung liegen bei der Grafikerweiterung für die
-Forth-Umgebung Performance Micro Prod. von Greg Harris. Die im (eigenen)
-Forth-Assembler codierten Routinen sind dahingehend optimiert, dass die
+Die Wurzel der Erweiterung liegt in der Grafikerweiterung für die Forth-
+Umgebung Performance Micro Prod. von Greg Harris, programmiert im
+(eigenen) Forth-Assembler mit entsprechenden Forth-Worten (GRON, GROFF,
+GRCL, GRCOL, MODE, LINE, PLOT, TEST, HLIN, VLIN). Die codierten Tabellen
+und Routinen (Screen 59 bis Screen 64 von Disk 059 "FORTH V5.0 MD") sind
+als JSR-Subroutinen ausgebildet und es sind nur jene Bestandteile
+entnommen worden, die keine Forth-High-Level-Worte darstellen. Diese
+Routinen und Tabellen wurden aus dem Forth-Dictionary per Monitor in den
+Bereich $C000 bis $CFFF übertragen, wobei diese reloziert wurden und
+auch die verwendeten Zero-Page-Speicherstellen umgesetzt werden mussten.
+Die BASIC-Kommandos und die Interpreter-Anbindung ist per Monitor dazu
+assembliert worden.
+
+Die Grafikroutinen sind dahingehend optimiert, dass die
 auf dem Bresenham-Algorithmus basierende Umsetzung ohne ständige
 Punktpositionsberechung arbeitet, sondern der Grafikcursor als Adresse
 und Bitposition geführt wird.
-Ein gleichwertige Implementierung findet man auch im Spiel Elite, wobei dort
-der Grafikbereich so eingeschränkt ist, dass die X-Koordinate mit einem Byte
-auskommt (0-255), was eine noch schnellere Implementierung erlaubt.
-Dazu kamen auch noch speziell optimiert Varianten für eine horizontale
-und vertikale Linie, die auch als Sonderfall beim gewöhnlichen Linienbefehl
-Verwendung finden.
 
-Eine Verwendung für BASIC war wegen der Akzeptanz dringend notwendig,
-was zur Entwicklung einer entsprechenden BASIC-Erweiterung führte. Das
-genaue Zustandekommen der Übertragung aus dem Forth-Code ist nicht mehr
-nachvollziehbar, da entsprechende Aufzeichnung fehlen. Vermutet werden
-kann, dass Code entweder 1:1 herauskopiert wurde und dabei mit
-Hilfe eines Monitors der Code verschoben und dessen absoluten Referenzen
-und Zeropage-Adressen automatisch angepasst wurden. Der Glue-Code für den
-Basic-Interpreter wurde direkt mit einem Monitor assembliert und
-schließlich ohne eigentlichem Sourcecode abgespeichert.
-Oder es wurde ein Assembler-Source vom Forth-Source konvertiert und
-dann mit dem Glue-Code versehen. Der Source-Code ist aber nicht mehr
-auffindbar, der diese Variante hätte belegen können.
+Eine ähnliche Implementierung findet man auch im Spiel Elite, wo aber
+der Linienalgorithmus auf DDA basiert, wobei die Steigung auf
+256 per Division vorher skaliert wird, was den Vorteil hat, dass
+in der Linienschleife nur eine Addition nötig ist und bei einem
+0-Durchgang den Versatz eines Linienpunktes anzeigt. Dazu kommt noch,
+dass dort zum einen der Grafikbereich so eingeschränkt ist, dass die X-
+Koordinate mit einem Byte auskommt (0-255) und zum anderen ein Loop-
+Unrolling bei entsprechenden Platzverbrauch verwendet wurde, was eine
+noch schnellere Implementierung ergab. Zugunsten der Kompaktheit wurde
+für die BASIC-Erweiterung auf ein Loop-Unrolling verzichtet.
 
-Dabei ist der Code für den Punkttest (unter Forth "TEST") zwar enthalten,
-wird aber vom Glue-Code nicht in den Interpreter eingebunden.
+Ergänzend kamen auch noch das Zeichnen speziell optimierter
+Linienvarianten, nämlich für eine horizontale und vertikale Linie, die
+auch als Sonderfälle im gewöhnlichen Linienbefehl integriert sind.
+Die horizontale Linie ist später zu einem Blockbefehl ausgeweitet worden,
+wo man die "Linienstärke" angeben kann (entspricht der Blockhöhe).
+
+Als eigenständiger Befehl wurde der Schriftbefehl, um Text in die
+Grafik zu schreiben. Es war aber nur die bekannte Text-Block-Auflösung
+für die Positionierung möglich (nicht auf Pixel-Basis).
+
+In der Initialversion ist der Code für den Punkttest (unter Forth
+"TEST") zwar enthalten, wird aber vom Glue-Code nicht in den Interpreter
+eingebunden.
+
+
 
 
 Verwendung
@@ -134,11 +158,17 @@ LOAD"....",8
 
 ### SYS-Variante
 
+# die Erweiterung vorher laden:
+
 LOAD"GE",8,1
 NEW
+SYS49152
 LOAD"....",8
 
-1 IFPEEK(49153)+PEEK(49154)=21THENSYS49152
+# Oder im Programm die Erweiterung automatisch laden und initialisieren:
+
+1 IFPEEK(49153)+PEEK(49154)<>21THENLOAD"GE",8,1
+2 IFPEEK(49153)+PEEK(49154)=21THENSYS49152
 
 
 
@@ -186,6 +216,15 @@ fill-demo.bas		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig
 			gesetzten Blockhaufen und wieder füllend löschen (Textformat)
 fill-demo.prg		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
 			gesetzten Blockhaufen und wieder füllend löschen (CBM-Format)
+
+fill-demo2.bas		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
+			gezeichneten Linienhaufen und wieder füllend löschen,
+			wobei durch schräge Übergänge nicht alles zusammenhängend ist
+			und damit nicht alles "verschwindet". (Textformat)
+fill-demo2.prg		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
+			gezeichneten Linienhaufen und wieder füllend löschen,
+			wobei durch schräge Übergänge nicht alles zusammenhängend ist
+			und damit nicht alles "verschwindet". (CBM-Format)
 
 g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
@@ -371,6 +410,6 @@ Variante	Zeit
 Nach &V Optimierung in 1.27
 
 10x &VX,0,199           52.85 s (TI)
-10x &VX,199,X,0         57.00 s (TI)    Parsing 4. Parameter
-10x &VX,0,X,199         57.05 s (TI)    Parsing 4. Parameter und Tausch der Y-Werte
+10x &LX,199,X,0         57.00 s (TI)    Parsing 4. Parameter
+10x &LX,0,X,199         57.05 s (TI)    Parsing 4. Parameter und Tausch der Y-Werte
 

@@ -1,4 +1,5 @@
-1 ifpeek(49153)+peek(49154)=21thensys49152
+1 ifpeek(49153)+peek(49154)<>21thenload"ge",8,1
+2 ifpeek(49153)+peek(49154)=21thensys49152
 10 &g1,5,0 : rem grafik ein
 20 &s4 : rem fehlermodus: abbruch
 21 &s2 : rem grafikmodus: toggle

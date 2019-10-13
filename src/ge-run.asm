@@ -5,7 +5,7 @@
 ; 2016-05-18 johann e. klasek, johann at klasek at
 ;
 ; revisions:
-;	2016-05-18 v 1.21
+;	2019-10-12 v 1.29
 ;
 ;
 ; Usage: RUN
@@ -15,16 +15,18 @@
 
 *= $0801
 basic_start
-;       2013 sys2061
-	!by <EOP,>EOP,<(2013),>(2013),$9E
-	!tx "2061"
-	!by 0 		; End of Line
-EOP	!by 0, 0	; Basic-Programmende
+;       2019 sys....:REM by ....
+        !by <EOP,>EOP,<(2019),>(2019),$9E ; Link-Adresse, Zeilennummer, SYS-Token
+        !by '0' + loader % 10000 / 1000   ; Ziffern für SYS-Argument
+        !by '0' + loader %  1000 /  100
+        !by '0' + loader %   100 /   10
+        !by '0' + loader %    10
+        ; ":rem "-Teil
+        !pet $3a, $8f, " graext by j.e.e.k."
+        !by 0                             ; BASIC "End of Line"
+EOP     !wo 0                             ; BASIC-Programmende
 
 loader
-!if loader != 2061 {
-	!error "Loader-Adresse stimmt nicht mit SYS-Adresse überein!"
-}
 
 	ldx #<graext_end	; setup basic
 	ldy #>graext_end
