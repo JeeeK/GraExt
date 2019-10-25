@@ -1,6 +1,8 @@
-######### gra-ext v1.8 #########
+######### gra-ext v1.30  2019-10-25 #########
+
 
 *** Commands:
+
 
 &P x,y
 	Plot: set/reset/toggle pixel at position x,y
@@ -14,20 +16,29 @@
 &G 0
 &G 1,fg,bg
 &G 2,fg,bg
+&G 3
+&G 4
 	Graphic mode: turn on/off graphic mode
 	0 turn off (without further parameters)
 	1 turn on with forground color fg, background color bg
-	2 like 1, but without screen erasing
-	0<=fg<=15
-	0<=bg<=15
+	2 like 1, but without screen erasing (setups only
+          the foreground and background color)
+	3 graphic on without erase
+	4 only erase graphic
+	Color value:
+		0<=fg<=15
+		0<=bg<=15
 
 &L x0,y0,x1,y1
 	Line: draw a line from absolute position 0 to absolute position 1
 	x0,y0 and x1,y1 coordinates as described at plot.
 
-&H x,y,xl
-	Horizontal line: draw a horizontal line from position x,y xl
-	pixels to the right.
+&H x,y,xl[,yl]
+	Horizontal line or block: draw a horizontal line from position x,y
+	with xl pixels to the right. 
+	With optional yl the thickness of the line is given drawing a 
+	rectangular box starting at x,y with width xl to the right
+	and height yl downward.
 
 &V x,y,yl
 	Vertical line: draw a vertical line from position x,y yl pixels
@@ -35,9 +46,13 @@
 
 &S m
 	Set mode: defines operational mode for all drawing commands
-	m=0 reset pixel (to background color)
-	m=1 set pixel (to foreground color)
-	m=2 toggle pixel
+		or setup mode for range error handling.
+	m=0 graphic mode: reset pixel (to background color)
+	m=1 graphic mode: set pixel (to foreground color)
+	m=2 graphic mode: toggle pixel
+	m=3 range error handling: abort command
+	m=4 range error handling: terminate with illegal quantity error
+	m=5 range error handling: back to call (clip value)
 
 &C cx,cy,string
 
@@ -48,16 +63,42 @@
 	0<=cx<=39
 	0<=cy<=24
 
-&T x,y
+&T x,y [TO x,y [TO x,y ...]]
 	Line to: draw a line from the pixel cursor position to the
 	absolute coordinates x,y
+	Multiple coordinates are optional separated by TO.
 
-&R x,y
+&R dx,dy [TO dx,dy [TO dx,dy ...]]
 	Line to relative: draw a line from the pixel cursor position to
 	the position dx,dy relative to the pixel cursor's position.
+	Multiple relative coordinates are optional separated by TO.
+
+&F x,y
+	Flood fill the area starting at x,y in the current mode.
+	This uses the free BASIC storage for a temporary graphic
+	stack.
+&U
+	Unnew: Restore the last BASIC program after a warm start or reset.
+
+
+
+
+*** Functions:
+
+
+&X
+	Get X position: get the current graphic cursor in X direction
+
+&Y
+	Get Y position: get the current graphic cursor in Y direction
+
+&Z(x,y)
+	Get pixel status: returns value 1 if the pixel is set, 0 otherwise.
+
 
 
 **** Usage hints and technical parameters
+
 
 Important! This extension has to be intialized by doing an initial
 	SYS 49152
@@ -71,8 +112,8 @@ Otherwise a syntax error happens.
 The color information for the hires screen is located at $CC00 (52224),
 taking 1000 bytes.
 
-The extension itself is located in the range from $C000 to $CBFF (49152
-to 52223).
+The extension itself is located in the range from $C000 to $CA68 (49152
+to 51815).
 
 
 **** Run-time behavior
@@ -97,7 +138,7 @@ then the graphical command set of most of any other extensions.
 
 **** Author
 
-http://www.klasek.at/c64
+http://klasek.at/c64/gra-ext
 
 johann (at) klasek (dot) at
 

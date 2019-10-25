@@ -6,6 +6,9 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+        2019-10-25 v 1.30               &T, &R mit beliebig weiteren Koordinatenpaaren
+                                        mit TO als Separator. 
+                                        &S Modus 3-5 korrigiert.
         2019-10-11 v 1.29               Optimierung &L (Bresenham, X-Dekrementierung).
                                         Grafik-Speichereinblendung mit Interruptsperre
                                         minimiert.
@@ -306,8 +309,15 @@ Turbo-Modus wird das Maximum der möglichen Geschwindigkeit heraus geholt.
 Bugs
 ----
 
+Version bis 1.29
+- - - - - - - - 
+
+ * &S Kommando: Modus 3 bis 5 wurden nicht richtig verarbeitet
+   (Fehlerbehandlungsmodus).
+
+
 Version 1.18
-- - - - - -
+- - - - - - 
 
  * Parser hat das Problem, ein ":" am Zeilenanfang führt zu
    einem "Syntax Error".

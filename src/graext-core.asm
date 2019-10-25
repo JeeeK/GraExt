@@ -3,9 +3,10 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 !macro version {
-	!text "1.29" ; current version
+	!text "1.30" ; current version
 }
 ; revisions:
+;	2019-10-24 v 1.30
 ;	2019-10-10 v 1.29
 ;	2016-09-10 v 1.28
 ;	2016-07-13 v 1.27
@@ -85,6 +86,8 @@ b_rechain = $A533	; rechain basic lines
 b_str2fac = $BCF3	; convert string in FAC (expression handling)
 b_chkparl = $AEFA 	; check '('
 b_chkparr = $AEF7 	; check ')'
+
+t_to = $A4		; keyword TO token
 
 ; hardware registers and values
 
@@ -1232,18 +1235,19 @@ range_error
 	LDA savemo
 	AND #$F0
 	BNE +
+				; error mode 3: abort command (silent)
 	PLA			; cleanup JSR
 	PLA			; highbyte of return address >0
--	RTS			; error mode 0: do nothing, back to caller before
-				; error mode 2: cut value: control back
+
+-	RTS			; error mode 5: back to command
 				; to handle value correction
 				; Z=0
-+	AND #$20
-	BNE -			; Z=0
++	AND #$20		; mode 5?
+	BNE -			; exit with Z=0
+	PLA			; error mode 4: terminate with error
 	PLA			; cleanup JSR
-	PLA
 setmode_error
-	JMP b_illquant		; error mode 1: throw error message
+	JMP b_illquant		; throw error message
 
 ;-----------------------------------------------------------------
 
@@ -1255,8 +1259,11 @@ setmode
 	BCS setmode_error	; out of range
 				; error mode
 	TXA
-	ADC #13			; C=0, therefore -3
-				; 3-5 -> 16-18
+	SBC #2			; C=0, therefore -3
+	ASL			; 0-2 -> 16,32 or 48
+	ASL			; shift to upper nibble
+	ASL
+	ASL
 				; put A's bit 4-7 into savemo
 	EOR savemo		; ********
 	AND #%11110000		; ****0000
@@ -1369,6 +1376,9 @@ get
 
 ;-----------------------------------------------------------------
 
+relto_cont
+			; continue
+	JSR chrget	; skip TO token
 relto
         JSR b_getval	; get X offset (+/-)
 	LDA facexp	; FAC exponent
@@ -1422,8 +1432,14 @@ rt_xok
         LDA xendh
         LDX yend	; xend/yend = cursor + x/y
 
-        JMP line_start	; draw line x/y to xend/yend
+        JSR line_start	; draw line x/y to xend/yend
 
+	JSR chrgot
+	BNE +
+	RTS
++	CMP #t_to	; TO keyword?
+	BEQ relto_cont
+        JMP b_syntaxerror		; throw error (unknown command)
 
 ;-----------------------------------------------------------------
 
@@ -1550,11 +1566,14 @@ char_disp_leave
         TAY		; restore saved registers
         PLA
         TAX
-        RTS
+-       RTS
 
 
 ;-----------------------------------------------------------------
 
+to_cont
+			; continue
+	JSR chrget	; skip TO token
 to
         LDA savexl
         STA xl
@@ -1563,7 +1582,12 @@ to
         LDA savey
         STA y
         JSR getxy
-        JMP line_start
+        JSR line_start
+	JSR chrgot
+	BEQ -
+	CMP #t_to	; TO keyword?
+	BEQ to_cont
+        JMP b_syntaxerror		; throw error (unknown command)
 
 ;-----------------------------------------------------------------
 
