@@ -1,4 +1,4 @@
-######### gra-ext v1.30  2019-10-25 #########
+######### gra-ext v1.31  2019-10-31 #########
 
 
 *** Commands:
@@ -35,14 +35,19 @@
 
 &H x,y,xl[,yl]
 	Horizontal line or block: draw a horizontal line from position x,y
-	with xl pixels to the right. 
+	with xl pixels to the right (endposition is x+xl).
 	With optional yl the thickness of the line is given drawing a 
 	rectangular box starting at x,y with width xl to the right
-	and height yl downward.
+	and height yl downwards (down to y+yl).
 
 &V x,y,yl
 	Vertical line: draw a vertical line from position x,y yl pixels
-	down.
+	down. Endposition is y+yl.
+
+&B x,y,xl,yl
+	Box: draw a rectangular frame starting at x,y xl to the right and
+	yl down. The lower right corner has the coordinates x+xl,y+yl.
+	The graphic cursor is set to x,y.
 
 &S m
 	Set mode: defines operational mode for all drawing commands
@@ -112,8 +117,8 @@ Otherwise a syntax error happens.
 The color information for the hires screen is located at $CC00 (52224),
 taking 1000 bytes.
 
-The extension itself is located in the range from $C000 to $CA68 (49152
-to 51815).
+The extension itself is located in the area from $C000 to $CAA1 (49152
+to 51873).
 
 
 **** Run-time behavior
@@ -128,15 +133,20 @@ graphical programming.
 Such disadvantages prevents GRA-EXT. It is short and efficient. You may
 chain load this extension without currupting the main program.
 
-The implemention is very optimized (fast line drawing algorithm with in
-bitmap shifting) leading to a very fast execution timing.
-
 Compared to Simon's Basic up to 4-5 times faster, or 2-3 times faster
-then the graphical command set of most of any other extensions.
+then the graphical command set provided by nearly any other extension.
 
+The implemention is fast because its well optimized and limited to
+the hires mode. All graphic routines use fast algorithms, like the fast
+line drawing algorithm based on Bresenham. The main key is that all
+operations are done directly in the bitmap without pointwise addressing
+of single points (preventing the calculation of bitmap positions from
+coordinates all the time).
 
 
 **** Author
+
+Johann Klasek
 
 http://klasek.at/c64/gra-ext
 

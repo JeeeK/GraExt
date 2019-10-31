@@ -6,6 +6,7 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+        2019-10-31 v 1.31               Befehl &B (Box) ergänzt.
         2019-10-25 v 1.30               &T, &R mit beliebig weiteren Koordinatenpaaren
                                         mit TO als Separator. 
                                         &S Modus 3-5 korrigiert.
@@ -13,7 +14,7 @@ Versionen:
                                         Grafik-Speichereinblendung mit Interruptsperre
                                         minimiert.
                                         Source-Doku. korr. und erweitert.
-        2016-09-10 v 1.28               Funktion &F (Fill) ergänzt.
+        2016-09-10 v 1.28               Befehl &F (Fill) ergänzt.
 	2016-07-13 v 1.27		&V geschwindigkeitsoptimiert.
 	2016-07-09 v 1.26		Funktionen &X,&Y,&Z(x,y) ergänzt.
 					save-Variablen umgeordnet, erweitert.
@@ -57,7 +58,7 @@ Versionen:
 					Binär dem Original 1992 entsprechend,
 					inklusive aller Bugs.
 	1992-12-28 v 1.18		Kommandosyntax ohne ","
-					Verteils (z.B. an Michael Rautner)
+					Verteilt und in Umlauf gebracht.
 	1986-03-24 v 1.17		Finale Version
 					zur damaligen Zeit üblicherweise
 					in Verwendung (Maturazeitungsdiagramme)
@@ -73,7 +74,6 @@ ToDo:
 Wunschliste:
 
  * Grafik löschen separat und besonders schnell!
- * Box
  * Char mit Pixel-Positionierung
  * Circle
  * Clipping: trotzdem Zeichnen, aber am Rand aufhören.
@@ -82,6 +82,8 @@ Wunschliste:
  * Multicolor?
 
 erledigt:
+ * Box -> ab 1.31
+ * RelTo, To mit variabler Koordinatenliste -> ab 1.30
  * Optimierungen: Line: zu niedrigen Koordinaten mit
         Dekremetieren und Zero-Bedingung statt Inkremtieren
         mit explizitem Vergleich. -> ab 1.29
@@ -228,6 +230,13 @@ fill-demo2.prg		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig
 			gezeichneten Linienhaufen und wieder füllend löschen,
 			wobei durch schräge Übergänge nicht alles zusammenhängend ist
 			und damit nicht alles "verschwindet". (CBM-Format)
+
+fill-demo3.bas		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
+			gesetzten Rechteckhaufen und wieder füllend löschen (Textformat)
+			Ab Gra-Ext 1.31
+fill-demo3.prg		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
+			gesetzten Rechteckhaufen und wieder füllend löschen (CBM-Format)
+			Ab Gra-Ext 1.31
 
 g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
@@ -442,14 +451,15 @@ Nach &V Optimierung in 1.27
 
 +++++++++++ Demos
 
-GraExt-Version  1.18            1.29
-                TI/RTC          TI/RTC
---------------------------------------------
-DEMO1           21,0/25,2       20,5/22,7
-DEMO2           15,0/19,0       15,2/16,8
-DEMO-V          55,3/55,5       53,4/53,5
-DEMO-H-V        -/-             6,6/6,6
-                5,6/5,5         5,4/5,3
-                -/-             0,07/0,4
---------------------------------------------
+GraExt-Version  1.18            1.29            1.31
+                TI/RTC          TI/RTC          TI/RTC
+---------------------------------------------------------
+DEMO1           21,0/25,2       20,5/22,7       20,5/22.6
+DEMO2           15,0/19,0       15,2/16,8       15,1/16,7
+DEMO-V          55,3/55,5       53,4/53,5       53,3/53,2
+DEMO-H-V        -/-             6,6/6,6         6,6/6,5
+                5,6/5,5         5,4/5,3         5,4/5.3
+                -/-             0,07/0,4        0,08/0,3
+---------------------------------------------------------
+
 

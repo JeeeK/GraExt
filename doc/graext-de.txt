@@ -1,79 +1,158 @@
-######### GRA-EXT V1.8 #########
+######### gra-ext v1.31  2019-10-31 #########
 
-*** BEFEHLE:
 
-&P X,Y
-	PLOT: PUNKT SETZEN
-	0<=X<=319
-	0<=Y<=199
+*** Befehle:
 
-&M X,Y
-	MOVE: BEWEGT DEN UNSICHTBAREN GRAFIK-CURSOR AN DIE POSITION X,Y
-	X,Y WIE BEI PLOT.
+
+&P x,y
+	Plot: setzt/löscht/invertiert Pixel an Position x,y
+	0<=x<=319
+	0<=y<=199
+
+&M x,y
+	Move: Der unsichtbare Pixel-Cursor wird nach Position x,y bewegt.
+	x,y siehe Plot.
 
 &G 0
-&G 1,ZF,HF
-&G 2,ZF,HF
-	GRAFIKMODUS: EIN-/AUSSCHALTEN:
-	0 GRAFIKMODUS ABSCHALTEN KEINE WEITEREN PARAMETER
-	1 GRAFIK EIN MIT ZF ZEICHENFARBE, HF HINTERGRUNDFARBE
-	2 GRAFIK EIN, WIE M=1, JEDOCH OHNE LÖSCHEN
-	0<=ZF<=15
-	0<=HF<=15
+&G 1,fg,bg
+&G 2,fg,bg
+&G 3
+&G 4
+	Graphic mode: Grafik ein-/ausschalten
+	0 ausschalten (ohne weitere Parameter)
+	1 Grafik aktivieren mit Vordergrundfarbe fg, Hintergrundfarbe bg
+	2 wie 1, aber ohne Löschen der Bitmap (setzt nur die
+          Vordergrund- und Hintergrundfarbe)
+	3 einschalten ohne Bildschirm zu löschen
+	4 nur den Bildschirm löschen
+	Farbwertbereich:
+		0<=fg<=15
+		0<=bg<=15
 
-&L X0,Y0,X1,Y1
-	LINE: LINIE ZIEHEN, VON PUNKT 0 ZU PUNKT 1
-	X0,Y0 und X1,Y1 KOORDINATEN WIE BEI PLOT.
+&L x0,y0,x1,y1
+	Line: zieht Linie von absoluter Position 0 zu absoluter Position 1.
+	x0,y0 und x1,y1 sind Koordinaten wie bei Plot beschrieben.
 
-&H X,Y,XL
-	HORIZONTAL LINE: ZIEHT EINE HORIZONTALE LINIE VON PUNKT (X,Y) NACH RECHTS, WOBEI DIE LÄNGE DER LINIE DURCH XL GEGEBEN IST.
+&H x,y,xl[,yl]
+	Horizontale Line oder Block: zieht eine horizontale Line von Position x,y
+	xl Pixel nach rechts (Endposition ist x+xl).
+	Mit dem optionalen yl, der die "Dicke" der Linie angibt kann ein
+	rechteckiger Block beginnend bei x,y mit Breite xl nach rechts
+	und Höhe yl nach unten (zu y+yl) erstellt werden.
 
-&V X,Y,YL
-	VERTICAL LINE: WIE HORIZONTALE LINIE, JEDOCH VERTIKAL VOM PUNKT (X,Y) NACH IN LÄNGE YL NACH UNTEN.
+&V x,y,yl
+	Vertikale Line: zeichnet eine vertikale Linie von Position x,y yl Pixel
+	nach unten. Endposition ist y+yl.
 
-&S M
-	SET MODE: SETZT ZEICHENMODUS
-	M=0 LÖSCHEN
-	M=1 SETZEN
-	M=2 XOR-VERKNUEPFUNG (GILT FUER ALLE ZEICHEN OPERATIONEN)
+&B x,y,xl,yl
+	Box: zeichnet einen rechteckigen Rahmen beginnend bei x,y xl nach rechts
+        und yl nach unten. Die untere, rechte Ecke hat die Koordinaten x+xl,y+yl.
+	Der graphische Cursor wird auf x,y gesetzt.
 
-&C CX,CY,STRING
-	CHARACTER: ZEICHEN AM HIRES SCHIRM AUSGEBEN
-	STRING KANN EIN BELIEBBIGER STRINGAUSDRUCK SEIN, DER BEGINNEND AN CHARAKTER-POSITION CX,CY AM BILDSCHIRM AUSGEGEBEN WIRD
-	0<=CX<=39
-	0<=CY<=24
+&S m
+	Set mode: Legt den Operationsmodus für alle Zeichenbefehle fest
+		oder setzt den Modus für die Fehlerbehandlung bei Koordinatenüberlauf.
+	m=0 Grafikmodus: Pixel löschen (auf Hintergrundfarbe setzen)
+	m=1 Grafikmodus: Pixel setzen (auf Vordergrundfarbe setzen)
+	m=2 Grafikmodus: Pixel invertieren
+	m=3 Fehlerbehandlung bei Koordinatenüberlauf: Befehl abbrechen.
+	m=4 Fehlerbehandlung bei Koordinatenüberlauf: Programm mit 
+	    "illegal quantity error" beenden.
+	m=5 Fehlerbehandlung bei Koordinatenüberlauf: Wieder zum Aufrufer zurück 
+	    (Wert entsprechend beschränken).
 
-&T X,Y
-	LINE TO: ZIEHT LINIE VOM ZULETZT GEZEICHNETEN PUNKT ZU X,Y (ABSOLUT)
-&R X,Y
-	LINE TO RELATIV: ZIEHT LINIE VON DER LETZTEN POSITION ZU JENER, DIE RELATIV DAZU DX,DY ENTFERNT IST.
+&C cx,cy,string
+
+	Character: Schreibt Textzeichen in die Grafik auf entsprechende Textmodes-
+        Positionen.
+	
+	string Zeichenkettenausdruck
+	cx,cy Textmodus Zeichposition (keine Pixel-Position!)
+	0<=cx<=39
+	0<=cy<=24
+
+&T x,y [TO x,y [TO x,y ...]]
+	Line to: zieht eine Linie von der Pixel-Cursor-Position zur
+	absoluten Koordinate x,y.
+	Mehrere Koordinaten können optional getrennt mit TO angegeben werden.
+
+&R dx,dy [TO dx,dy [TO dx,dy ...]]
+	Line to relative: zieht eine Linie der Pixel-Cursor-Position zur
+	Position dx,dy relativ zur Pixel-Cursor-Position.
+	Mehrere relative Koordinaten können optional getrennt mit TO angegeben 
+	werden.
+
+&F x,y
+	Flächenfüllen beginnend bei x,y mit dem aktuellen Modus.
+	Dieser Befehl verwendet den freien BASIC-Speicher als
+	temporären Grafikstapelspeicher.
+
+&U
+	Unnew: Stellt ein noch im Speicher befindliches BASIC-Program nach einem
+	Warmstart oder Reset wieder her.
 
 
-**** VERWENDUNG UND TECHNISCHE PARAMETER
-
-WICHTIG! DIE ERWEITERUNG MUSS MIT SYS 49152 INITIALISIERT WERDEN.
-
-DER GRAFIKSPEICHER LIEGT AB $E000 BZW. 57344 DEZ. (FÜR HARDCOPY-PROGRAMME).
-
-FOLGT EINER 'THEN' ANWEISUNG EIN GRA-EXT BEFEHL, SO MUSS VOR DER GRA-EXT-ANWEISUNG EIN DOPPELPUNKT EINGEFÜGT WERDEN.
-
-DAS FARBRAM FUER DAS HIRES-BILD BEFINDET SICH AB $CC00 BZW 52224 DEZ. IM SPEICHER.
-
-DIE ERWEITERUNG SELBST LIEGT VON $C000 BIS $CBFF IM SPEICHER (49152-52223).
 
 
-**** LAUFZEITVERHALTEN
-
-ES EXISTIEREN AM MARKT BEREITS UNMENGE VON GRAFIK-ERWEITERUNGEN, DOCH SCHLEPPEN DIESE EINEN SEHR GROSSEN BEFEHLSVORRAT MIT SICH HERUM (BIS ZU 100 BEFEHLE), WOBEI FÜR EINE GRAFIKANWENDUNG NUR 10 ODER WENIGER BEFEHLE BENÖTIGT WERDEN.  AUSSERDEM IST  ES NICHT BESONDERS LUSTIG VOR JEDEM START EINER GRAFIKERWEITERUNG DIESE ZU LADEN, WENN SIE EINEN UMFANG VON RUND 70 BLÖCKE AUFWEIST.
-
-SOLCHE NACHTEILE HAT GRA-EXT NICHT. DIESE ERWEITERUNG IST KURZ, KANN NACHGELADEN WERDEN OHNE DAS HAUPTPROGRAMM ZU ZERSTÖREN.
-AUSSERDEM IST DIESE GRAFIK-ERWEITERUNG SEHR SCHNELL (CA. 4-5 MAL SO SCHNELL WIE SIMON'S BASIC, CA. 2-3 MAL SCHNELLER ALS DIE MEISTEN ANDEREN ERWEITERUNGEN)
+*** Functionen:
 
 
-**** AUTOR
+&X
+	Get X position: ermittelt die aktuelle Grafik-Cursor-Position in X-Richtung.
 
-HTTP://WWW.KLASEK.AT/C64
+&Y
+	Get Y position: ermittelt die aktuelle Grafik-Cursor-Position in Y-Richtung.
 
-JOHANN (AT) KLASEK (DOT) AT
+&Z(x,y)
+	Get pixel status: gibt den Pixelstatus an Position x,y zurück:
+	Wert 1, wenn der Pixel gesetzt ist, sonst 0.
 
+
+
+**** Benutzungshinweise und technische Parameter
+
+
+Achtung! Diese Erweiterung muss zu Beginn mit folgendem Befehl initialisiert werden:
+	SYS 49152
+
+Der Speicher der Bitmap startet bei $E000 (57344) und braucht 8000 Bytes
+(für Hardcopy-Programme).
+
+Wenn ein GRA-EXT-Befehl einem "THEN" folgt, dann muss ein extra ":" eingefügt
+werden. Andernfalls bricht das Programm mit SYNTAX ERROR ab.
+
+Die Farbinformation für den Hires-Schirm liegt bei $CC00 (52224) und umfasst
+1000 Bytes.
+
+Die Erweiterung liegt im Bereich von $C000 bis $CAA1 (49152 bis 51873).
+
+
+**** Laufzeitverhalten
+
+Es existieren am Markt bereits Unmengen von Grafikerweiterungen, doch schleppen
+diese oft einen sehr großen Befehlsvorrat mit sich herum (bis zu 100 Befehle 
+und mehr), wobei fÜr eine Grafikanwendung vielleicht nur 10 oder weniger 
+Befehle benötigt werden.  Ausserdem ist  es nicht sonderlich angenehm vor 
+jedem Start einer Grafikerweiterung diese zu laden, wenn sie einen umfang von 
+rund 70 Blöcke aufweist.
+
+Diese Nachteile hat GRA-EXT nicht, denn diese Erweiterung ist ziemlich kompakt,
+kann nachgeladen werden, ohne das Hauptprogramm zu zerstören.
+
+Außerdem ist diese Grafikerweiterung sehr schnell (ca. 4-5 mal so schnell wie 
+Simon's BASIC, ca. 2-3 mal schneller als die meisten anderen Erweiterungen.
+Das liegt zu meinen daran, dass sich die Fähigkeiten auf den Hires-Modus 
+beschränken und die Grafikroutinen dahingehend optimiert sind. Außerdem kommen
+schnelle Algorithmen, wie etwa das Bresenham-Verfahren zum Zeichnen einer Linie
+zum Einsatz. Alle Operationen arbeiten dabei immer direkt in der Bitmap statt 
+ständig punktweise mit Koordinaten zu hantieren.
+
+
+**** Autor
+
+Johann Klasek
+
+http://klasek.at/c64/gra-ext
+
+johann (at) klasek (dot) at
 
