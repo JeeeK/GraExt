@@ -34,14 +34,14 @@
 	x0,y0 und x1,y1 sind Koordinaten wie bei Plot beschrieben.
 
 &H x,y,xl[,yl]
-	Horizontale Line oder Block: zieht eine horizontale Line von Position x,y
+	Horizontal line or block: zieht eine horizontale Linie von Position x,y
 	xl Pixel nach rechts (Endposition ist x+xl).
 	Mit dem optionalen yl, der die "Dicke" der Linie angibt kann ein
 	rechteckiger Block beginnend bei x,y mit Breite xl nach rechts
 	und Höhe yl nach unten (zu y+yl) erstellt werden.
 
 &V x,y,yl
-	Vertikale Line: zeichnet eine vertikale Linie von Position x,y yl Pixel
+	Vertical line: zeichnet eine vertikale Linie von Position x,y yl Pixel
 	nach unten. Endposition ist y+yl.
 
 &B x,y,xl,yl
@@ -83,7 +83,7 @@
 	werden.
 
 &F x,y
-	Flächenfüllen beginnend bei x,y mit dem aktuellen Modus.
+	Fill: Flächenfüllen beginnend bei x,y mit dem aktuellen Modus.
 	Dieser Befehl verwendet den freien BASIC-Speicher als
 	temporären Grafikstapelspeicher.
 
@@ -94,7 +94,7 @@
 
 
 
-*** Functionen:
+*** Funktionen:
 
 
 &X
