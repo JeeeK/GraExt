@@ -6,6 +6,10 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+        2020-05-03 v 1.32               Befehl &F (Fill) in platzoptimierter Variante
+                                        (als Standard), wo der Positionsstack nur
+                                        noch 3 statt 4 Bytes braucht mit Korrektur
+                                        der Startpositionsparameter.
         2019-10-31 v 1.31               Befehl &B (Box) ergänzt.
         2019-10-25 v 1.30               &T, &R mit beliebig weiteren Koordinatenpaaren
                                         mit TO als Separator. 

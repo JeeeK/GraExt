@@ -3,9 +3,10 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 !macro version {
-	!text "1.31" ; current version
+	!text "1.32" ; current version
 }
 ; revisions:
+;	2020-05-03 v 1.32
 ;	2019-10-30 v 1.31
 ;	2019-10-24 v 1.30
 ;	2019-10-10 v 1.29
@@ -37,6 +38,10 @@
 ; error handling 
 ;	(if defined)
 ;no_error=1
+
+; optimize for space (at runtime)
+opt_space=1
+
 
 ; basic interpreter registers, addresses and entry points
 
@@ -110,6 +115,12 @@ gramp	= gram >> 8	; start page of bitmap
 
 xmax	= 320		; max x dimension
 ymax	= 200		; max y dimension
+
+!ifdef opt_space {
+fesize	= 3		; Fill stack entry size without block position
+} else {
+fesize	= 4		; Fill stack entry size with block position
+}
 
 ; zeropage variables
 
@@ -1658,7 +1669,7 @@ fill
         
         LDA basaryend		; initialize fill stack pointer
 	SEC
-	SBC #4			; one element below
+	SBC #fesize		; one element below
         STA fstack		; use space between basic arrays
         LDA basaryend+1		; and string heap bottom
 	SBC #0			; take borrow
@@ -1669,7 +1680,7 @@ fill
 	LDA xh			; setup 8x8 block index (x8)
 	LSR			; high bit into C
 	LDA xl
-	ROL			; take high bit
+	ROR			; take high bit
 	LSR
 	LSR			; finally divide by 8
 	STA x8			; = index of 8x8 block in bitmap
@@ -1838,10 +1849,12 @@ process_stack
 	BCS +			; fstack >= basaryend -> not empty
 	JMP gexit		; empty, we are finished
 
-+	LDY #4-1		; top of stack, element's last component
++	LDY #fesize-1		; top of stack, element's last component
+!ifndef opt_space {
 	LDA (fstack),y
 	STA x8			; 8x8 block position
 	DEY
+}
 	LDA (fstack),y
 	STA tmpmask		; pixel mask
 	DEY
@@ -1852,10 +1865,14 @@ process_stack
 	TAX			; needed twice
 	AND #%11111000		; split off address
 	STA gaddr
+!ifdef opt_space {
+	ORA #%00000100		; end bit marker (if 0 all bits are shifted)
+	STA x8			; low byte without least significant 3 bits
+				; x8 temporary reused. Calculated later ...
+}
 	TXA
 	AND #%00000111		; split off y-line
 	TAY
-	
 	LDA (gaddr),y		; get pixels
 	EOR fmode		; according to set/reset
 	TAX			; keep it for later
@@ -1869,7 +1886,7 @@ process_stack
 pop_stack
 	SEC	
 	LDA fstack		; remove entry from stack
-	SBC #4			; entry size
+	SBC #fesize		; entry size
 	STA fstack
 	BCS +
 	DEC fstack+1
@@ -1878,9 +1895,31 @@ pop_stack
 				; all bits unset,
 	BEQ ++			; stack already cleaned up
 +++	PLP			; stack cleanup
+++
+
+!ifdef opt_space {
+	; Calculate the 8x8 block index from the the graphic address.
+	; Delayed, only if popped position is not already filled ...
+	; ((addr & 0x1fff) >> 3) % 40
+	; Takes 5 iterations.
+	; X, Y left untouched, x8 has bit 2 set as end marker, bit 0, 1 is cleared.
+	; (312/8) % 40  -> 39
+	; 1 00111.000 : 101000
+	LDA gaddr+1		; divident high byte, mask out upper 3 bits
+	AND #$1f		; range 0 to 1f3f
+	ROR			; compensate for first ROL
+-	ROL			; shift into high byte, carry from low byte
+	CMP #40			; modulo 40
+	BCC +			; dividend less divisor
+	SBC #40			; greater or equal divisor, c=1
+				; nothing done to keep the quotient
++	ASL x8			; shift low byte divident
+	BNE -			; if end-marker bit shifted out -> 0
+	STA x8			; modulo in accu, stored to final location
+}
 
 	; set bits outside mask to 1
-++	TXA			; bitmap
+	TXA			; bitmap
 				; 00100110	
 	EOR #$ff		; 11011001
 	AND tmpmask		; 00011100 -> 00011000
@@ -1945,7 +1984,7 @@ fc_nocont
 push_to_stack
 	CLC			; fstack points to top of stack
 	LDA fstack		; to next free stack element
-	ADC #4			; entry size
+	ADC #fesize		; entry size
 	STA fstack
 	BCC +
 	INC fstack+1
@@ -1974,9 +2013,11 @@ fc_put
 	INY
 	LDA tmpmask
 	STA (fstack),y
+!ifndef opt_space {
 	INY
 	LDA x8			; 8x8 block position
 	STA (fstack),y
+}
 	
 fc_exit	RTS
 	

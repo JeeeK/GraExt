@@ -13,7 +13,7 @@
 70 for i=1 to 2000: next : rem wait
 80 &s0: &f 0,0 : rem vanishing it with fill
 85 for i=1 to 500: next : rem short wait
-90 run
+90 goto 20
 100 &h x,y,30,20
 101 &s 0
 102 &h x+1,y+1,28,18
