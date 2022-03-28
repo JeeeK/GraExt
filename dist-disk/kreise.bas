@@ -1,0 +1,20 @@
+  1 ifpeek(49153)+peek(49154)<>21thenload"ge",8,1
+  2 ifpeek(49153)+peek(49154)=21thensys49152
+  6 dimt,d,x:deffnt(x)=int(x/16)*10+(xand15):d=56590:goto10
+  7 t=fnt(peek(d-3))*1e4+fnt(peek(d-4))*100+fnt(peek(d-5))+fnt(peek(d-6))/10:return
+  9 poked,(127andpeek(d))+128*peek(678):poked-3,0:poked-4,0:poked-5,0:poked-6,0:return
+ 10 dimx,y,i,r,r1
+ 50 &g1,13,0
+100 ti$="000000":gosub9
+120 fori=0to10
+130 y(i)=200*rnd(1):x(i)=320*rnd(1)
+140 next
+150 forx=0to319:fory=0to199:r=1e6:fori=0to10
+180 r1=sqr((x-x(i))*(x-x(i))+(y-y(i))*(y-y(i)))
+190 ifr1<rthenr=r1
+200 next:&sr/3and1:&px,y:next:next
+9996 tt=ti:gosub7
+9997 poke198,0:wait198,1
+9998 &g0
+9999 printtt/60,t
+

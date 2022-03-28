@@ -1,9 +1,8 @@
     1 ifpeek(49153)+peek(49154)<>21thenload"ge",8,1
     2 ifpeek(49153)+peek(49154)=21thensys49152
-    6 dimt,d,x:deffnt(x)=int(x/16)*10+(xand15):goto10
-    7 t=fnt(peek(d+11))*10000+fnt(peek(d+10))*100+fnt(peek(d+9))+fnt(peek(d+8))/10:return
-    9 d=56576:poked+14,128orpeek(d+14):poked+15,127andpeek(d+15):poked+11,0:poked+10,0:poked+9,0:poked+8,0:return
-
+    6 dimt,d,x:deffnt(x)=int(x/16)*10+(xand15):d=56590:goto10
+    7 t=fnt(peek(d-3))*1e4+fnt(peek(d-4))*100+fnt(peek(d-5))+fnt(peek(d-6))/10:return
+    9 poked,(127andpeek(d))+128*peek(678):poked-3,0:poked-4,0:poked-5,0:poked-6,0:return
    10 l=4*8
    20 y=200-l
    50 &g1,5,0

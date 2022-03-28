@@ -6,91 +6,90 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
-        2020-05-03 v 1.32               Befehl &F (Fill) in platzoptimierter Variante
-                                        (als Standard), wo der Positionsstack nur
-                                        noch 3 statt 4 Bytes braucht mit Korrektur
-                                        der Startpositionsparameter.
-        2019-10-31 v 1.31               Befehl &B (Box) ergänzt.
-        2019-10-25 v 1.30               &T, &R mit beliebig weiteren Koordinatenpaaren
-                                        mit TO als Separator. 
-                                        &S Modus 3-5 korrigiert.
-        2019-10-11 v 1.29               Optimierung &L (Bresenham, X-Dekrementierung).
-                                        Grafik-Speichereinblendung mit Interruptsperre
-                                        minimiert.
-                                        Source-Doku. korr. und erweitert.
-        2016-09-10 v 1.28               Befehl &F (Fill) ergänzt.
-	2016-07-13 v 1.27		&V geschwindigkeitsoptimiert.
-	2016-07-09 v 1.26		Funktionen &X,&Y,&Z(x,y) ergänzt.
-					save-Variablen umgeordnet, erweitert.
-					Single-Expression-Hook ($030A) verwendet.
-	2016-06-19 v 1.25		&C korrigiert umstrukturiert.
-					&s5 ist noch nicht implementiert.
-					Produktiv mit Mängel:
-					Fehlerbehandlung korr. (für &s3-5)
-					Neu: &H x,y,xl[,yl] (breite horiz.  Linie)
-					LTC-Variante berücksichtigt spezielle
-					Speicherkonfiguration!
-					Versionsnummer im Dateikopf.
-	2016-06-16 v 1.24		Bugfix: &C korrigiert umstrukturiert.
-					Startmeldung nur im Direktmodus ausgeben.
-					Buggy:
-					&s3-5 funktioniert nicht.
-					Fehlerbehandlung unvollständig (für &s3-5)
-	2016-05-30 v 1.23		&U neu (UNNEW)
-					Buggy:
-					&s3-5 funktioniert nicht.
-					Fehlerbehandlung unvollständig (für &s3-5)
-	2016-05-20 v 1.22		&G Modi 3 (nur löschen) und 4 (nur aus)
-					&S neue Werte 3-5 für Fehlerbehandlung,
-					Fehlerbehandlung dynamisch (unvollständig)
-					ROM-fähig (gmask, gchange Routinen ins
-					RAM, $033C-Bereich)
-					Buggy:
-					&s3-5 funktioniert nicht.
-					Fehlerbehandlung unvollständig (für &s3-5)
-	2016-02-23 v 1.21		graext-core.asm als Basis für
-					graext (ge) und ge-run (als
-					RUN-Programm, verschiebt Basic-Start!)
-	2016-02-23 v 1.20		Optimierte Jump-Table, Bugfix Line
-					command_rts_style=1 ... Kommandoverteiler
+	2022-03-27 v 1.33	Befehl &F (Fill) Korrektur Fehler Startpunkt.
+	2020-05-03 v 1.32	Befehl &F (Fill) in platzoptimierter Variante
+				(als Standard), wo der Positionsstack nur
+				noch 3 statt 4 Bytes braucht mit Korrektur
+				der Startpositionsparameter.
+	2019-10-31 v 1.31	Befehl &B (Box) ergänzt.
+	2019-10-25 v 1.30	&T, &R mit beliebig weiteren Koordinatenpaaren
+				mit TO als Separator.
+				&S Modus 3-5 korrigiert.
+	2019-10-11 v 1.29	Optimierung &L (Bresenham, X-Dekrementierung).
+				Grafik-Speichereinblendung mit Interruptsperre
+				minimiert.
+				Source-Doku. korr. und erweitert.
+	2016-09-10 v 1.28	Befehl &F (Fill) ergänzt.
+	2016-07-13 v 1.27	&V geschwindigkeitsoptimiert.
+	2016-07-09 v 1.26	Funktionen &X,&Y,&Z(x,y) ergänzt.
+				save-Variablen umgeordnet, erweitert.
+				Single-Expression-Hook ($030A) verwendet.
+	2016-06-19 v 1.25	&C korrigiert umstrukturiert.
+				&s5 ist noch nicht implementiert.
+				Produktiv mit Mängel:
+				Fehlerbehandlung korr. (für &s3-5)
+				Neu: &H x,y,xl[,yl] (breite horiz.  Linie)
+				LTC-Variante berücksichtigt spezielle
+				Speicherkonfiguration!
+				Versionsnummer im Dateikopf.
+	2016-06-16 v 1.24	Bugfix: &C korrigiert umstrukturiert.
+				Startmeldung nur im Direktmodus ausgeben.
+				Buggy:
+				&s3-5 funktioniert nicht.
+				Fehlerbehandlung unvollständig (für &s3-5)
+	2016-05-30 v 1.23	&U neu (UNNEW)
+				Buggy:
+				&s3-5 funktioniert nicht.
+				Fehlerbehandlung unvollständig (für &s3-5)
+	2016-05-20 v 1.22	&G Modi 3 (nur löschen) und 4 (nur aus)
+				&S neue Werte 3-5 für Fehlerbehandlung,
+				Fehlerbehandlung dynamisch (unvollständig)
+				ROM-fähig (gmask, gchange Routinen ins
+				RAM, $033C-Bereich)
+				Buggy:
+				&s3-5 funktioniert nicht.
+				Fehlerbehandlung unvollständig (für &s3-5)
+	2016-02-23 v 1.21	graext-core.asm als Basis für
+				graext (ge) und ge-run (als
+				RUN-Programm, verschiebt Basic-Start!)
+	2016-02-23 v 1.20	Optimierte Jump-Table, Bugfix Line
+				command_rts_style=1 ... Kommandoverteiler
 					via RTS statt JMP.
-					Bugfix Command-Hook: z.B. ":" am
-					Zeilenanfang lösten einen Syntax-Error aus.
-	2016-01-18 v 1.19               Bug in Line flat/up
-					no_error=1 ... kein Illegal Quantity Error
-	2016-01-14 v 1.18		in ACME-Source übertragen
-					Binär dem Original 1992 entsprechend,
-					inklusive aller Bugs.
-	1992-12-28 v 1.18		Kommandosyntax ohne ","
-					Verteilt und in Umlauf gebracht.
-	1986-03-24 v 1.17		Finale Version
-					zur damaligen Zeit üblicherweise
-					in Verwendung (Maturazeitungsdiagramme)
+				Bugfix Command-Hook: z.B. ":" am
+				Zeilenanfang lösten einen Syntax-Error aus.
+	2016-01-18 v 1.19	Bug in Line flat/up
+				no_error=1 ... kein Illegal Quantity Error
+	2016-01-14 v 1.18	in ACME-Source übertragen
+				Binär dem Original 1992 entsprechend,
+				inklusive aller Bugs.
+	1992-12-28 v 1.18	Kommandosyntax ohne ","
+				Verteilt (z.B. an Michael Rautner)
+	1986-03-24 v 1.17	Finale Version
+				zur damaligen Zeit üblicherweise
+				in Verwendung (Maturazeitungsdiagramme)
 	1985       v 0.00 - 1.16
 
 
-ToDo:
-
- behoben:
- * &C Prozport nicht mit festen Wert überschreiben ($21), nur maskieren! -> ab 1.24
-
+ToDO:
+ * &C Prozport nicht mit festen Wert überschreiben ($21), nur maskieren!
 
 Wunschliste:
 
- * Grafik löschen separat und besonders schnell!
  * Char mit Pixel-Positionierung
+ * Grafik löschen separat und besonders schnell!
  * Circle
  * Clipping: trotzdem Zeichnen, aber am Rand aufhören.
-        Echtes Clipping oder nur Koordinaten abschneiden?
+ 	Echtes Clipping oder nur Koordinaten abschneiden?
         (Fehlerbehandlung Mode 5!)
  * Multicolor?
 
 erledigt:
- * Box -> ab 1.31
- * RelTo, To mit variabler Koordinatenliste -> ab 1.30
+ * Box &b -> ab 1.31
+ * &t (To), &r (RelTo) mit beliebig vielen Koordinatenpaaren.
+   -> ab 1.30
  * Optimierungen: Line: zu niedrigen Koordinaten mit
-        Dekremetieren und Zero-Bedingung statt Inkremtieren
-        mit explizitem Vergleich. -> ab 1.29
+	Dekremetieren und Zero-Bedingung statt Inkremtieren
+	mit explizitem Vergleich. -> ab 1.29
  * Fill -> ab 1.28
  * Grafikcursor auslesen -> ab 1.26
  * GETXY-Funktion -> ab 1.26
@@ -98,8 +97,6 @@ erledigt:
  * Block gefüllt (&H anpassen?) -> ab 1.25
  * Unnew -> ab 1.23
  * Grafik einschalten ohne löschen. -> ab 1.22
-
-
 
 
 Geschichte:
@@ -126,7 +123,7 @@ Eine ähnliche Implementierung findet man auch im Spiel Elite, wo aber
 der Linienalgorithmus auf DDA basiert, wobei die Steigung auf
 256 per Division vorher skaliert wird, was den Vorteil hat, dass
 in der Linienschleife nur eine Addition nötig ist und bei einem
-0-Durchgang den Versatz eines Linienpunktes anzeigt. Dazu kommt noch,
+0-Durchgang den Versatz eines Linienpunktes anzeigt. Dazu kommt noch, 
 dass dort zum einen der Grafikbereich so eingeschränkt ist, dass die X-
 Koordinate mit einem Byte auskommt (0-255) und zum anderen ein Loop-
 Unrolling bei entsprechenden Platzverbrauch verwendet wurde, was eine
@@ -148,11 +145,8 @@ In der Initialversion ist der Code für den Punkttest (unter Forth
 eingebunden.
 
 
-
-
 Verwendung
 ----------
-
 
 ### RUN-Variante
 
@@ -192,6 +186,7 @@ LOAD"....",8
 
 
 
+
 Source
 ------
 
@@ -201,6 +196,8 @@ Makefile		Erstellen von
 				erstellt Gra-Ext PRGs
 			make i
 				erstellt D64-Image x.d64
+
+butterfly-test.prg	Hires-Bitmap mit einem Schmetterling für fill-butterfly
 
 debug.bas		Grafik-Demo: Block-/Linien-Demo
 				zum Experimentieren (Textformat)
@@ -218,9 +215,18 @@ demo-h-v.bas		Grafik-Demo: Vergleich Schirmfüllen mit
 demo-h-v.prg		Grafik-Demo: Vergleich Schirmfüllen mit
 			H-Linien, V-Linien und H-Block (CBM-Format)
 
+demo-star.bas		Grafik-Demo: Stern (Textformat)
+demo-star.prg		Grafik-Demo: Stern (CBM-Format)
+			Laufzeit: 2,5 s
+			Aus https://www.c64-wiki.de/wiki/Special_Basic#Test_der_Grafik-Geschwindigkeit
+
 demo-v.bas		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (Textformat)
 demo-v.prg		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (CBM-Format)
 
+fill-butterfly.bas	Grafik-Demo: Lädt butterfly-test Hires-Bild und
+			füllt es (Textformat)
+fill-butterfly.prg	Grafik-Demo: Lädt butterfly-test Hires-Bild und
+			füllt es (CBM-Format)
 fill-demo.bas		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
 			gesetzten Blockhaufen und wieder füllend löschen (Textformat)
 fill-demo.prg		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
@@ -275,10 +281,22 @@ graext.r		ACME Report-Ausgabe der SYS-Variante
 
 info.txt		diese Datei
 
+kreise.bas		Grafik-Demo: Kreise-Grafik (Textformat)
+kreise.prg		Grafik-Demo: Kreise-Grafik (CBM-Format)
+kreise.png		Grafik-Demo: Kreise-Grafik Screenshot Endbild.
+
+spirale.bas		Grafik-Demo: Spiral-Grafik (Textformat)
+spirale.prg		Grafik-Demo: Spiral-Grafik (CBM-Format)
+			Lange Berechnung! Ergebnisbild laut PNG.
+			Laufzeit: 5931.76667 s Jiffies, RTC: 1:39:06.5
+			(1:38:51 gemäß Jiffies)
+spirale.png		Grafik-Demo: Spirale-Grafik Screenshot Endbild.
+
 x.d64			D64-Image, erstell mittels
 			make x.d64
 			oder
 			make i
+
 
 
 
@@ -304,10 +322,10 @@ zugegriffen. Lediglich beim Zugriff auf das Grafik-RAM (das C64-interne) zwecks
 Manipulation der Grafikdaten, erfolgt der Zugriff nur mit 1 MHz, was aber anteilig
 eher geringfügig ist.
 Allerdings hat der Modus "vollständige ROM-Simulation" den Nachteil, dass ab
-$8000 das externe RAM eingeblendet ist und als Pseudo-ROM wie ein ROM nicht 
-veränderlich ist. Hier funktioniert leider auch nicht die gewohnte Steuerung 
-der Memory-Map mittels Prozessorport $01. Daher muss beim Zugriff auf das 
-Grafik-RAM ab $E000 immer dieser Modus ausgeschaltet und auf die normale 
+$8000 das externe RAM eingeblendet ist und als Pseudo-ROM wie ein ROM nicht
+veränderlich ist. Hier funktioniert leider auch nicht die gewohnte Steuerung
+der Memory-Map mittels Prozessorport $01. Daher muss beim Zugriff auf das
+Grafik-RAM ab $E000 immer dieser Modus ausgeschaltet und auf die normale
 ROM-Simulation umgeschaltet werden (wo dann das KERNAL-ROM ausgeblendet ist).
 Diese Umschaltung ist nur in der speziellen graext-c000-ltc-Variante
 inkludiert. Da hierbei umständlich ein Konfigurationsregister der HW-Erweiterung
@@ -319,27 +337,36 @@ im 1-MHz-Modus im Vergleich zum "normalen" C64 ohne HW-Erweiterung, aber im
 Turbo-Modus wird das Maximum der möglichen Geschwindigkeit heraus geholt.
 
 
+
+
 Bugs
 ----
+
+
+Version 1.28 bis 1.32
+- - - - - - - - - - -
+
+ * &F Kommando: Startpunkt wird nicht zuverlässig als füllbar erkannte
+	und kann zu einem unmittelbaren Abbruch führen, ohne dass
+	gefüllt wird.
+
 
 Version bis 1.29
 - - - - - - - - 
 
  * &S Kommando: Modus 3 bis 5 wurden nicht richtig verarbeitet
-   (Fehlerbehandlungsmodus).
+   (Fehlerbehandlungsmodus). 
 
 
 Version 1.18
 - - - - - - 
 
- * Parser hat das Problem, ein ":" am Zeilenanfang führt zu
+ * Parser hat das Problem, ein ":" am Zeilenanfang führt zu 
    einem "Syntax Error".
-   Ursache:
-   Der CHRGET-Status nach der Prüfung von "&" wird nicht
+   Ursache: 
+   Der CHRGET-Status nach der Prüfung von "&" wird nicht 
    der Status korrekt erhalten, wenn es kein "&"-Zeichen ist
    und das Parsing ans ROM weitergegeben wird.
-
-
 
 
 
@@ -349,28 +376,24 @@ Fill-Demo
 Speicherverbrauch
 - - - - - - - - -
 
-Siehe fill-demo.bas
+fill-demo.bas
 
-                        Stackverbrauch       Elemente
+			Stackverbrauch	     Elemente
 --------------------------------------------------------------------------------------
-V1.28 2016-09-10        094f - 0f80             396     Nachbaren auf Stack korr.
+V1.28 2016-09-10	094F - 0F80		396	Nachbaren auf Stack korr.
 
-V1.28 2016-09-05        0900 - 0F00             384     Stackelement entfernen,
-                                                        wenn Lücke vollständig leer.
-                        0909 - 0F71             410
+V1.28 2016-09-05	0900 - 0F00		384	Stackelement entfernen, 
+							wenn Lücke vollständig leer.	
+			0909 - 0F71		410
 
-V1.28 2016-08-29        0900 - 1A00             1088    +Lückenstart bei 8-Pixelzeile
+V1.28 2016-08-29	0900 - 1A00		1088	+Lückenstart bei 8-Pixelzeile
 
-V1.28 2016-08-26        0900 - 1A00             1088    durchgehende Lücke oben/unten
-                                                        nur ein Stackelement!
+V1.28 2016-08-26	0900 - 1A00		1088	durchgehende Lücke oben/unten
+							nur ein Stackelement!
 
-V1.27 2016-08-15        0900 - 4000             3520    jeder nichtgefüllte Nachbar
-                                                        ein Stackelement!
+V1.27 2016-08-15	0900 - 4000		3520	jeder nichtgefüllte Nachbar 
+							ein Stackelement!
 --------------------------------------------------------------------------------------
-
-Stackverbrauch ermittelt in VICE, nach einigen Durchläufen den Speicher nach
-den Arrays (siehe 2b 2d ... Zeiger) mit m-Befehl untersuchen.
-
 
 
 
@@ -395,75 +418,74 @@ Benchmarking
 10 Durchläufe 1:33 -> 9,3s
 
 
-+++++++ GraExt 1.25
++++++++ GraExt 1.25, 1.31
 
 ### Unterschied &H im Blockmodus und &V
-
 
 # Vertikale Linie von links nach rechts den Bildschirm füllend.
 # Siehe demo-h-v.bas
 
-
-# Variante 1 (1 320 lange und 200 breite horzontale Linie)
+# Variante 1
 &H 0,0,319,199
 
-# Variante 2 (320 1 Pixel lange horizontale Linie vertikal über volle Höhe)
+# Variante 2 (1 Pixel lange vertikale Linie vertikal über volle Höhe)
 FOR X=0TO319
 &H X,0,0,199
 NEXT
 
-# Variante 3 (320 vertikale Linien)
+# Variante 3
 FOR X=0TO319
 &V X,0,199
 NEXT
 
-# Variante 4 (320 vertikale Linien, ist Sonderfall der auf &V-Routine geht)
+# Variante 4 (vertikale Linie, ist Sonderfall der auf &V-Routine geht)
 FOR X=0TO319
 &L X,0,X,199
 NEXT
 
-# Variante 5 (200 horizontale 320 lange Linien, ist Sonderfall der auf &H-Routine geht)
+# Variante 5 (vergleich, mit horiz. Linien füllen)
 FOR X=0TO199
 &L 0,X,319,X
 NEXT
 
 
 Variante	Zeit
-1: &H full	0,03
-2: &H		6,52
-3: &V		5,45
-4: &L vert.	5,83
-5: &L hor.	2,50
+		1.25	1.31
+		TI	RTC
+-----------------------------
+1: &H full	0,03	0,5
+2: &H		6,52	6,5
+3: &V		5,45	5,3
+4: &L vert.	5,83	5,8
+5: &L hor.	2,50	2,6
 
 
+++++++++++ GraExt 1.26
 
-++++++++++ GraExt 1.26 - 1.27
-
-# Bildschirm mit vertikalen Linien füllen.
-# Siehe demo-h-v.bas
-
-
-10x &VX,0,199           54.25 s (TI)
+10x &VX,0,199		54.25 s (TI)
 
 Nach &V Optimierung in 1.27
 
-10x &VX,0,199           52.85 s (TI)
-10x &LX,199,X,0         57.00 s (TI)    Parsing 4. Parameter
-10x &LX,0,X,199         57.05 s (TI)    Parsing 4. Parameter und Tausch der Y-Werte
-
+10x &VX,0,199		52.85 s (TI)
+10x &LX,199,X,0		57.00 s (TI)	Parsing 4. Parameter
+10x &LX,0,X,199		57.05 s (TI)	Parsing 4. Parameter und Tausch der Y-Werte
 
 
 +++++++++++ Demos
 
-GraExt-Version  1.18            1.29            1.31
-                TI/RTC          TI/RTC          TI/RTC
+GraExt-Version	1.18		1.29        	1.31
+		TI/RTC		TI/RTC		TI/RTC
 ---------------------------------------------------------
-DEMO1           21,0/25,2       20,5/22,7       20,5/22.6
-DEMO2           15,0/19,0       15,2/16,8       15,1/16,7
-DEMO-V          55,3/55,5       53,4/53,5       53,3/53,2
-DEMO-H-V        -/-             6,6/6,6         6,6/6,5
-                5,6/5,5         5,4/5,3         5,4/5.3
-                -/-             0,07/0,4        0,08/0,3
+DEMO1		21,0/25,2	20,5/22,7	20,5/22.6
+DEMO2		15,0/19,0	15,2/16,8	15,1/16,7
+DEMO-V		55,3/55,5	53,4/53,5	53,3/53,2
+DEMO-H-V	-		6,6/6,6		6,6/6,5
+		5,6/5,5		5,4/5,3		5,4/5.3
+		-		0,07/0,4	0,08/0,3
+DEMO-STAR	*		*		2,45/2,5
 ---------------------------------------------------------
 
+Legende:
+	* nicht erfasst
+	- nicht implementiert
 
