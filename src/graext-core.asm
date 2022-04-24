@@ -3,9 +3,10 @@
 ; 2015-10-05 johann e. klasek, johann at klasek at
 ;
 !macro version {
-	!text "1.33" ; current version
+	!text "1.34" ; current version
 }
 ; revisions:
+;	2022-04-24 v 1.34
 ;	2022-03-27 v 1.33
 ;	2020-05-03 v 1.32
 ;	2019-10-30 v 1.31
@@ -41,7 +42,7 @@
 ;no_error=1
 
 ; optimize for space (at runtime)
-opt_space=1
+;opt_space=1
 
 
 ; basic interpreter registers, addresses and entry points
@@ -1688,6 +1689,8 @@ fill
 	LSR			; finally divide by 8
 	STA x8			; = index of 8x8 block in bitmap
 
+	JSR ginit		; map in bitmap memory
+
 	; set fmode (from mode)
 	LDA savemo
 	AND #1			; mode = 0 -> invertmask: $FF
@@ -1695,20 +1698,19 @@ fill
 	SBC #1			; mode = 2 -> same as mode=0
 	STA fmode		; mode set or reset
 
-	STY ysave		; save y, will be destroyed
-	JSR push_to_stack	; place dummy on stack (data ignored)
-	LDY ysave
-	JSR ginit		; map in bitmap memory
-	JMP try_stack		; process current position and 
-				; pull from stack, comes back to f_start
-				; if pixel is already set, it never returns.
-				; graphic data in tmpbits
+        ; test start pixel
+        EOR (gaddr),Y           ; bitmap according to mode
+        STA tmpbits             ; mask bits
+        BIT tmpmask             ; check single bit, and preserve A
+        BEQ +			; not set, bit position already in X
+        JMP gexit		; set, we are finished early
 
-f_start				; start fill in the mid of a line ...
-	LDA #0			; initialize continuation flag
-	STA fcont		; for line above und below
+f_line				; start fill in the mid of a line ...
 
-	; tmpmask will be extended to left and right to the borders
+	; Get the index of the first leftmost unset pixel inside tmpmask.
+	; Just the single leftmost gap is filled, others are processed later
+	; from the element left on the stack.
+	; Normally comming from process_stack.
 
 	; set bits outside mask to 1
 	LDA tmpmask		; 00011100
@@ -1720,23 +1722,39 @@ f_start				; start fill in the mid of a line ...
 	ASL			; counting from left
 	BCS -			; loop if pixel is set
 				; bit number of the leftmost unset pixel in X
-	LDA tmpbits		; 01000010 graphic pixel data
-                                ; extent bitmask to the right
-	STX xsave		; needed again later
-	AND maskleft,X		; 0000S111 clear left from starting point, to
-				; 00000010 -> X=6
-	JSR bitposright		; find the first set bit to right (border)
-	LDA maskright0,X	; get a mask from the right border to left
-	STA tmpmask		; 1111S100
 
-	LDX xsave		; starting position
+	; in: pixels in tmpbits, bit index in X
++	LDA #0			; initialize continuation flag
+	STA fcont		; for line above und below
 	LDA tmpbits		; 01000010 graphic pixel data
-	AND maskright,X		; 11111000 clear right from starting point
-	BEQ stepleft8		; open to left, continue left
-leftcont
-	; find first set bit from start to left (border)
+	AND maskright,X		; 1111X000 clear right from starting point
+	BNE left_border		; 01000000 left border remains if any
+	; open to left, continue left
+	LDA #$ff		; no left border, next block to left
+	STA tmpmask		; initial mask full pixel line
+stepleft8
+	LDX x8 			; 8x8 block position
+	BEQ left_end		; hit left screen border, X=0 -> tmpmask=$FF!
+	DEC x8			; count step 8x8 block to left
+
+	SEC 			; graphic address to to next pixel line/block
+	LDA gaddr
+	SBC #8			; graphic address -8 -> next block left
+	BCS +
+	DEC gaddr+1		; carry to high byte 
++	STA gaddr
+
+	; y left unchanged
+	LDA (gaddr),Y		; real graphic pixel data from bitmap
+	EOR fmode		; set/reset mode
+	BEQ stepleft8		; step block left if empty (no border)
+
+left_border
+
+	; Find first set bit from start to left (border)
 	; Get the pixel position of the first set pixel from the right.
-	; bit 76543210  -> mask 01234567
+
+	; bit 76543210  -> index 12345678
 	; input    index   maskleft0
 	; 00000000 -> 0 -> $FF 
 	; 10000000 -> 1 -> $7F
@@ -1747,43 +1765,20 @@ leftcont
 	; XXXXX100 -> 6 -> $03
 	; XXXXXX10 -> 7 -> $01
 	; XXXXXXX1 -> 8 -> $00
-	; speed consideration: for results from X 0 to 4 it is faster than
+	; Speed consideration: for results from X 0 to 4 it is faster than
 	; a table-driven approach.
+	; A is never 0!
 	LDX #0
-	CMP #0			; special case (no bit set at all)
-	BEQ +
 -	INX
 	ASL			; shift to left
 	BNE -			; until byte is empty
-+
+
+left_end
 	LDA maskleft0,X		; get a mask from the left border to right
-				; 0011S111
-	AND tmpmask		; intersect with right mask 1111S100
-	STA tmpmask		; and store it for later 0011S100
-	BEQ next_block		; empty mask immediate continue to right
-	BNE to_right		; start to walk and fill to the right border
-
-stepleft8
-	LDA x8 			; 8x8 block position
-	BEQ to_right		; =0, hit left screen border
-	DEC x8			; count step 8x8 block to left
-	LDA #$ff
-	STA tmpmask		; initial mask full pixel line
-
-	SEC 			; graphic address to to next pixel line/block
-	LDA gaddr
-	SBC #8
-	BCS +
-	DEC gaddr+1
-+	STA gaddr
-
-	; y left unchanged
-	LDA (gaddr),Y		; real graphic pixel data from bitmap
-	EOR fmode		; set/reset mode
-	BEQ stepleft8		; step block left if empty
-	BNE leftcont		; find left border
-	
-next_block
+				; 00X11111
+	BNE right_start		; start to walk and fill towards the right border
+				; empty mask immediate continue to right
+stepright8
 	INC x8			; step right a block
 	LDA x8
 	CMP #40			; beyond last horizontal block?
@@ -1791,24 +1786,50 @@ next_block
 	; C = 0
 	LDA gaddr		; advance to block right
 	ADC #8			; gaddr = gaddr + 8
-	STA gaddr
 	BCC +
-	INC gaddr+1
-+	LDA #$ff		; asume "all pixels" mask
-	STA tmpmask
-	LDA (gaddr),Y		; pixel data
+	INC gaddr+1		; carry to high byte
++	STA gaddr
+	LDA #$ff		; force "all pixels" mask, because intial
+				; mask might be a partial one
+right_start
+	STA tmpmask		; 00111111 store all/distinct mask
+	LDA (gaddr),Y		; 01000010 pixel data
 	EOR fmode		; set/reset mode
-	BEQ to_right		; empty -> finally to to_right
-	JSR bitposright	        ; search right border
-	LDA maskright0,X	; mask out the right part
-	AND tmpmask		; shorten mask accordingly
-	STA tmpmask
+	AND tmpmask		; 00000010 mask out left border and beyond
+	BEQ fill_to_right	; empty -> finally start to fill
+
+	; Get the pixel position of the first set pixel from the left, to
+	; find the right border:
+
+	; bit 76543210  -> index 01234567  -> index
+	; input    index   maskright0
+	; 00000000 -> 8 -> $FF
+	; 00000001 -> 7 -> $FE
+	; 0000001X -> 6 -> $FC
+	; 000001XX -> 5 -> $F8
+	; 00001XXX -> 4 -> $F0
+	; 0001XXXX -> 3 -> $E0
+	; 001XXXXX -> 2 -> $C0
+	; 01XXXXXX -> 1 -> $80
+	; 1XXXXXXX -> 0 -> $00
+	; Speed consideration: for results of X from 4 to 8 it is faster than
+	; a table-driven approach.
+	; A is never 0!
+	LDX #8
+-	DEX
+	LSR			; shift to right
+	BNE -			; until byte is empty
+
+	; search right border
+	LDA maskright0,X	; 11111X00 mask out the right part
+	AND tmpmask		; 00111111 intersect with mask from left
+				; 00111100
 	BEQ process_stack	; done if bit 7 (leftmost) is set
 				; leading to 0 mask (fill_check wont't
 				; handle this special case)
-
+	STA tmpmask		; 00111100 save intersected masks from left and right
 				; continue to fill to right ...
-to_right			; fill loop towards right border
+fill_to_right			; fill loop towards right border
 	LDA tmpmask		; fill mask
 				; assert:    (bitmap & tempmask) == 0
 				;         || (bitmap & tempmask) == tempmask
@@ -1820,27 +1841,29 @@ check_above
 				; c = 0!
 	STY ysave		; to be restored later
 	LDA gaddr		; current graphic position
+	STA caddr		; check position
 	LDX gaddr+1
 	DEY			; line above
 	BPL +			; leaving 8x8 block?
 	; c=0 (asl fcont)
 	SBC #$40-1		; block above:
 	STA caddr		; caddr = gaddr - $140
-	TXA
-	SBC #$01
-	TAX
-	CMP #>gram		; still graphic ram?
+
+	DEX			; subtract high byte
+	BCS ++			; borrow from low byte
+	DEX			; subtract borrow
+++	CPX #>gram		; still graphic ram?
+
 	BCC skip_above
 	LDY #7			; last line in block in new block
-	!by $2c			; = bit $hhll, skip next statement (2 bytes)
-+	STA caddr		; still in same block
-++	STX caddr+1		; shared store
++	STX caddr+1		; shared store
 	JSR fill_check
 skip_above
 
 check_below
 	LSR fcont		; bit 2 back to bit 1 position to check (below)
 	LDA gaddr		; current graphic position
+	STA caddr		; check position
 	LDX gaddr+1
 	LDY ysave		; restore original y position
 	INY			; line below
@@ -1849,6 +1872,17 @@ check_below
 	; c=1 (cpy)
 	ADC #$40-1		; block below: accu has gaddr
 	STA caddr		; caddr = gaddr + $140
+
+;	INX
+;	BCC ++
+;	INX			; add carry
+;++	BEQ skip_below		; skip to $100xx, out of range
+;	CPX #>(gram+8000)
+;	BCC +++			; below GRAM end
+;	BNE skip_below		; high byte above, out of range
+;	CMP #<(gram+8000)	; low byte check if in last page of GRAM
+	; 12 T if GRAM not in last page!
+
 	TAY			; for compare later
 	TXA			; gaddr high
 	ADC #$01
@@ -1856,21 +1890,27 @@ check_below
 	BCS skip_below		; > $10000  -> skip
 	CPY #<(gram+8000)	; > gram end: $e000(=gram) + $2000 ?
 	SBC #>(gram+8000)
+	; 16 T
 	BCS skip_below		; greater, so skip
-	LDY #0			; first line in block
-	!by $2c			; = bit $hhll, skip next statement (2 bytes)
-+	STA caddr		; transfer unchanged
-++	STX caddr+1		; shared store
++++	LDY #0			; first line in block
++	STX caddr+1		; shared store
 	JSR fill_check
 skip_below
 
 	LDY ysave		; restore original y position
-	LDA tmpmask		; mask:
-	AND #%00000001		; open to right, continue?
-	BNE next_block		; to next block if open
+	LSR tmpmask
+				; bit 0 to carry, open to right, continue?
+	BCS stepright8		; to next block if open
 ; long branch version
-;	BEQ process_stack	; not open, finished
-;	JMP next_block		; to next block if open
+;	BCC +			; not open, finished
+;	JMP stepright8		; to next block if open
+;+
+
+
+; get next location to fill from stack (if any)
+;	in: fstack, fmode
+; 	out: fstack, gaddr, tmpmask, tmpbits, x8, Y
+; 	destroys: A
 
 process_stack
 	LDA fstack		; stack empty?
@@ -1905,7 +1945,7 @@ process_stack
 	TXA
 	AND #%00000111		; split off y-line
 	TAY
-try_stack
+
 	LDA (gaddr),Y		; get pixels
 	EOR fmode		; according to set/reset
 	STA tmpbits		; keep it for later
@@ -1951,12 +1991,13 @@ pop_stack
 	STA x8			; modulo in accu, stored to final location
 }
 
-	JMP f_start		; long (to far away) jump to fill line start
-;	BCC f_start		; not used: short variant, always (C=0 from above)
+	JMP f_line		; long (to far away) jump to fill line start
 
 
 ; Check upper or lower fill path
-;		destroys x
+;	in: caddr, fmode, tmpmask, fcont, fstack(, x8)
+;	out: fcont, fstack
+;	destroys: A,X,Y
 
 fill_check
 	LDA (caddr),Y
@@ -1979,7 +2020,6 @@ fc_checkstart			; no continuation, init flag based on
 fc_cont
 	LDA fcont		; set flag for continuation
 	ORA #%00000010		; mark in bit 1, store it, make a push
-	STA fcont
 	BNE push_to_stack	; always non zero
 
 fc_cleared
@@ -1992,14 +2032,14 @@ fc_cleared
 	LDA fcont		; continued gap?
 	AND #%00000010		; check bit 2
 	BEQ fc_cont		; new gap, start it and push on stack
-	RTS			; gap continued and already on stack, leave
+fc_exit	RTS			; gap continued and already on stack, leave
 
 fc_nocont
 	LDA fcont		; clear continuation flag
 	AND #%11111101		; clear bit 2
-	STA fcont
 
 push_to_stack
+	STA fcont
 	CLC			; fstack points to top of stack
 	LDA fstack		; to next free stack element
 	ADC #fesize		; entry size
@@ -2037,40 +2077,12 @@ fc_put
 	STA (fstack),Y
 }
 	
-fc_exit	RTS
+	RTS
 	
 
 
 
 
-; Get the pixel position of the first set pixel from the left.
-; 76543210  bit ->
-; XXXXXXXX
-; 01234567  -> index
-
-; 00000000 -> 8 -> $FF
-; 00000001 -> 7 -> $FE
-; 0000001X -> 6 -> $FC
-; 000001XX -> 5 -> $F8
-; 00001XXX -> 4 -> $F0
-; 0001XXXX -> 3 -> $E0
-; 001XXXXX -> 2 -> $C0
-; 01XXXXXX -> 1 -> $80
-; 1XXXXXXX -> 0 -> $00
-
-; usage: lda maskright0,X
-
-; speed consideration: for results of X from 4 to 8 it is faster than
-; a table-driven approach.
-
-bitposright
-	LDX #8
-	CMP #0			; special case (no bit set at all)
-	BEQ +
--	DEX
-	LSR			; shift to right
-	BNE -			; until byte is empty
-+	RTS
 
 ;-----------------------------------------------------------------
 

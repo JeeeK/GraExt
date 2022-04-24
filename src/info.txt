@@ -6,6 +6,8 @@ Autor: Johann Klasek, johann AT klasek at
 
 Versionen:
 
+        2022-04-24 v 1.34	Befehl &F (Fill) Code-Bereinigung, kleinere
+				Optimierungen.
 	2022-03-27 v 1.33	Befehl &F (Fill) Korrektur Fehler Startpunkt.
 	2020-05-03 v 1.32	Befehl &F (Fill) in platzoptimierter Variante
 				(als Standard), wo der Positionsstack nur
@@ -187,8 +189,8 @@ LOAD"....",8
 
 
 
-Source
-------
+Source Repo
+-----------
 
 
 Makefile		Erstellen von
@@ -224,9 +226,9 @@ demo-v.bas		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (Textformat)
 demo-v.prg		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (CBM-Format)
 
 fill-butterfly.bas	Grafik-Demo: Lädt butterfly-test Hires-Bild und
-			füllt es (Textformat)
+			füllt und löscht es mit Zeitmessung (Textformat)
 fill-butterfly.prg	Grafik-Demo: Lädt butterfly-test Hires-Bild und
-			füllt es (CBM-Format)
+			füllt und löscht es mit Zeitmessung (CBM-Format)
 fill-demo.bas		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
 			gesetzten Blockhaufen und wieder füllend löschen (Textformat)
 fill-demo.prg		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig 
@@ -248,6 +250,11 @@ fill-demo3.prg		Grafik-Demo: Füllen des Zwischenraumes bei einem zufällig
 			gesetzten Rechteckhaufen und wieder füllend löschen (CBM-Format)
 			Ab Gra-Ext 1.31
 
+fill-all.bas		Grafik-Demo: Leeren Screen bei 0,0 füllen und mit Zeitmessung.
+			(Textformat)
+fill-all.prg		Grafik-Demo: Leeren Screen bei 0,0 füllen und mit Zeitmessung.
+			(CBM-Format)
+
 g-ext18.hex		Gra-Ext 1.8 im od-Hex-Format
 g-ext18.prg		Gra-Ext 1.8 im CBM-Format als Referenz, von der
 			Distributionsdisk
@@ -259,6 +266,13 @@ ge-run.asm		Gra-Ext RUN-Variante, verwendet graext-core.asm
 ge-run.l		ACME Listing-Ausgabe der RUN-Variante
 ge-run.prg		ACME Objekt-Datei (CBM-Format) der RUN-Variante
 ge-run.r		ACME Report-Ausgabe der RUN-Variante
+
+ge-run+.l		ACME Listing-Ausgabe der RUN-Variante,
+			Stack geschwindigkeitsoptimiert.
+ge-run+.prg		ACME Objekt-Datei (CBM-Format) der RUN-Variante,
+			Stack geschwindigkeitsoptimiert.
+ge-run+.r		ACME Report-Ausgabe der RUN-Variante,
+			Stack geschwindigkeitsoptimiert.
 
 graext-c000-ltc		Gra-Ext LTC-Variante (Lost Turbo Card 64)
 graext-c000-ltc.l	ACME Listing-Ausgabe der LTC-Variante
@@ -274,10 +288,18 @@ graext.hex		Binary im Hex-Format für den diff-Vergleich
 			auf Basis des 1.8-Codes verwendet worden.
 
 ge.prg			Nur eine Kopie von graext.o, für das D64-Image
+ge+.prg			Nur eine Kopie von graext+.o, für das D64-Image
 
 graext.l		ACME Listing-Ausgabe der SYS-Variante
 graext.o		ACME Objekt-Datei (CBM-Format) der SYS-Variante
 graext.r		ACME Report-Ausgabe der SYS-Variante
+
+graext+.l		ACME Listing-Ausgabe der SYS-Variante,
+			Stack geschwindigkeitsoptimiert.
+graext+.o		ACME Objekt-Datei (CBM-Format) der SYS-Variante,
+			Stack geschwindigkeitsoptimiert.
+graext+.r		ACME Report-Ausgabe der SYS-Variante,
+			Stack geschwindigkeitsoptimiert.
 
 info.txt		diese Datei
 
@@ -297,6 +319,129 @@ x.d64			D64-Image, erstell mittels
 			oder
 			make i
 
+
+Source
+------
+
+1.*/
+			Versionen-Snapshots ("tagged"), erstellt
+			mittels make tag TAG="x.y"
+
+Makefile		Erstellen von
+			make
+				erstellt Gra-Ext PRGs
+			make i
+				erstellt D64-Image x.d64
+
+REV/			Datenrevisionen
+
+butterfly-test.prg	Hires-Bitmap mit einem Schmetterling
+
+debug			identisch mit debug.prg, von Diskimage kommend
+debug.bas		Text-Version von debug.prg
+debug.prg
+			Block-Demo
+
+demo1.bas		Text-Version von demo1.prg
+demo1.prg
+			Moiree-Demo asymmetrisch
+
+demo2.bas
+demo2.prg
+			Moiree-Demo im Rechteck, mittig
+			Laufzeit: 14,7 s
+
+demo-h-v.bas
+demo-h-v.prg
+			Schirm mit vertikalen und horizontalen Linien füllen/löschen
+
+demo-star.bas
+demo-star.prg
+			Stern
+			Laufzeit: 2,5 s
+			Aus https://www.c64-wiki.de/wiki/Special_Basic#Test_der_Grafik-Geschwindigkeit
+
+demo-test-1.bas
+demo-test-1.prg
+			1-Pixel-Blöcke füllen (Fill-Test).
+
+demo-v.bas
+demo-v.prg
+			Schirm laufend mit vertikalen Linien füllen/löschen
+
+fill-butterfly.bas
+fill-butterfly.prg
+			Lädt butterfly-test Hires-Bild und füllt es.
+
+fill-demo.bas
+fill-demo.prg
+			Überdeckende Rechteck-Wolke umfüllen und wieder löschen
+
+fill-demo2.bas
+fill-demo2.prg
+			Zick-Zack-Linien umfüllen und wieder löschen
+
+fill-demo3.bas
+fill-demo3.prg
+			Durchscheinende Rechteck-Wolke umfüllen und wieder löschen
+
+
+g-ext18			identisch mit g-ext18.prg, von Diskimage kommend
+g-ext18.hex
+g-ext18.prg
+			Gra-Ext 1.8 als Referenz
+
+ge-run.asm
+ge-run.l
+ge-run.prg
+ge-run.r
+			Gra-Ext RUN-Variante
+
+gliding-lines.prg	Grafik-Demo
+
+graext-core.asm
+
+graext.init.asm
+
+graext.asm
+graext.hex		Binary im Hex-Format für den diff-Vergleich
+			mit der Referenz g-ext18.hex
+			War nur für die Source-Wiederherstellung
+			auf Basis des 1.8-Codes verwendet worden.
+
+ge			identisch mit ge.prg, von Diskimage kommend.
+ge.prg			identisch mit graext.o^
+graext.l
+graext.o
+graext.r
+			Gra-Exe SYS-Variante
+
+graext.vice.src.txt
+
+index.txt
+info.demo.txt		Hinweise für den Demo-Start
+info.txt
+
+kreise.bas
+kreise.prg
+kreise.png
+			Kreise-Grafik-Demo.
+			Lange Berechnung! Ergebnisbild laut PNG.
+
+spirale.bas
+spirale.prg
+spirale.png
+			Spiral-Grafik-Demo.
+			Lange Berechnung! Ergebnisbild laut PNG.
+			Laufzeit: 5931.76667 s Jiffies, RTC: 1:39:06.5
+			(1:38:51 gemäß Jiffies)
+
+todo.txt		Ideen und TODOs
+
+x.d64			D64-Image, erstellen mittels
+			make x.d64
+			oder
+			make i
 
 
 
@@ -380,6 +525,7 @@ fill-demo.bas
 
 			Stackverbrauch	     Elemente
 --------------------------------------------------------------------------------------
+V1.34 2022-04-14	     - 1400
 V1.28 2016-09-10	094F - 0F80		396	Nachbaren auf Stack korr.
 
 V1.28 2016-09-05	0900 - 0F00		384	Stackelement entfernen, 
@@ -473,9 +619,11 @@ Nach &V Optimierung in 1.27
 
 +++++++++++ Demos
 
-GraExt-Version	1.18		1.29        	1.31
-		TI/RTC		TI/RTC		TI/RTC
----------------------------------------------------------
+GraExt-Version	1.18		1.29        	1.31/1.33	1.34a    1.34       1.34
+						size		size     size       speed
+		TI/RTC		TI/RTC		TI/RTC		TI/RTC   TI/RTC     TI/RTC
+						STACK		STACK	 STACK      STACK
+-------------------------------------------------------------------------------------------
 DEMO1		21,0/25,2	20,5/22,7	20,5/22.6
 DEMO2		15,0/19,0	15,2/16,8	15,1/16,7
 DEMO-V		55,3/55,5	53,4/53,5	53,3/53,2
@@ -483,7 +631,14 @@ DEMO-H-V	-		6,6/6,6		6,6/6,5
 		5,6/5,5		5,4/5,3		5,4/5.3
 		-		0,07/0,4	0,08/0,3
 DEMO-STAR	*		*		2,45/2,5
----------------------------------------------------------
+FILL-BUTTERFLY	-		*		4/1,8		2,0/2,2  4/1,7      4/1,6
+						4/1,9			 4/1,8      4/1,7
+						$1098		$1610    $1098      $12cc
+						$1158			 $1158      $13cc
+FILL-ALL	-		*		-/1,77		-/1,9    -/1,8      -/1,8
+                                                                                         
+						$0a00		$0ba0	 $094e(1)   $094f(1)   
+-------------------------------------------------------------------------------------------
 
 Legende:
 	* nicht erfasst

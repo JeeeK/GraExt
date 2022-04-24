@@ -415,7 +415,7 @@
    370                          cmdsend
    371                          
    372                          cmdaddr
-   373  c120 55ca90c8a3c171c7...        !word unnew-co,fill-co,graphic-co,char-co,setmode-co,move-co
+   373  c120 48ca90c8a3c171c7...        !word unnew-co,fill-co,graphic-co,char-co,setmode-co,move-co
    374  c12c 49c8fdc628c8d8c4...        !word box-co,relto-co,to-co,vline-co,hline-co,line-co,plot-co
    375                          
    376  c13a 934752412d455854...author	!text 147,"GRA-EXT V"
@@ -1721,7 +1721,7 @@
   1671                                  
   1672  c8a2 a531                       LDA basaryend		; initialize fill stack pointer
   1673  c8a4 38                 	SEC
-  1674  c8a5 e903               	SBC #fesize		; one element below
+  1674  c8a5 e904               	SBC #fesize		; one element below
   1675  c8a7 85fd               	STA fstack		; use space between basic arrays
   1676  c8a9 a532               	LDA basaryend+1		; and string heap bottom
   1677  c8ab e900               	SBC #0			; take borrow
@@ -1907,7 +1907,7 @@
   1857  c960 9007               	BCC skip_above
   1858  c962 a007               	LDY #7			; last line in block in new block
   1859  c964 86fc               +	STX caddr+1		; shared store
-  1860  c966 20f3c9             	JSR fill_check
+  1860  c966 20e1c9             	JSR fill_check
   1861                          skip_above
   1862                          
   1863                          check_below
@@ -1944,7 +1944,7 @@
   1894  c987 b007               	BCS skip_below		; greater, so skip
   1895  c989 a000               +++	LDY #0			; first line in block
   1896  c98b 86fc               +	STX caddr+1		; shared store
-  1897  c98d 20f3c9             	JSR fill_check
+  1897  c98d 20e1c9             	JSR fill_check
   1898                          skip_below
   1899                          
   1900  c990 a4a9               	LDY ysave		; restore original y position
@@ -1971,54 +1971,54 @@
   1921  c9a0 4c3fc2             	JMP gexit		; empty, we are finished
   1922                          
   1923                          	; top of stack: fetched multiple times until mask is completly filled!
-  1924  c9a3 a002               +	LDY #fesize-1		; element's last component
+  1924  c9a3 a003               +	LDY #fesize-1		; element's last component
   1925                          !ifndef opt_space {
-  1926                          	LDA (fstack),Y
-  1927                          	STA x8			; 8x8 block position
-  1928                          	DEY
+  1926  c9a5 b1fd               	LDA (fstack),Y
+  1927  c9a7 85a7               	STA x8			; 8x8 block position
+  1928  c9a9 88                 	DEY
   1929                          }
-  1930  c9a5 b1fd               	LDA (fstack),Y
-  1931  c9a7 85a3               	STA tmpmask		; pixel mask
-  1932  c9a9 88                 	DEY
-  1933  c9aa b1fd               	LDA (fstack),Y
-  1934  c9ac 85a6               	STA gaddr+1		; graphic addr high byte
-  1935  c9ae 88                 	DEY
-  1936  c9af b1fd               	LDA (fstack),Y		; graphic addr low byte combined with y-line
-  1937  c9b1 aa                 	TAX			; needed twice
-  1938  c9b2 29f8               	AND #%11111000		; split off address
-  1939  c9b4 85a5               	STA gaddr
+  1930  c9aa b1fd               	LDA (fstack),Y
+  1931  c9ac 85a3               	STA tmpmask		; pixel mask
+  1932  c9ae 88                 	DEY
+  1933  c9af b1fd               	LDA (fstack),Y
+  1934  c9b1 85a6               	STA gaddr+1		; graphic addr high byte
+  1935  c9b3 88                 	DEY
+  1936  c9b4 b1fd               	LDA (fstack),Y		; graphic addr low byte combined with y-line
+  1937  c9b6 aa                 	TAX			; needed twice
+  1938  c9b7 29f8               	AND #%11111000		; split off address
+  1939  c9b9 85a5               	STA gaddr
   1940                          !ifdef opt_space {
-  1941  c9b6 0904               	ORA #%00000100		; end bit marker (if 0 all bits are shifted)
-  1942  c9b8 85a7               	STA x8			; low byte without least significant 3 bits
+  1941                          	ORA #%00000100		; end bit marker (if 0 all bits are shifted)
+  1942                          	STA x8			; low byte without least significant 3 bits
   1943                          				; x8 temporary reused. Calculated later ...
   1944                          }
-  1945  c9ba 8a                 	TXA
-  1946  c9bb 2907               	AND #%00000111		; split off y-line
-  1947  c9bd a8                 	TAY
+  1945  c9bb 8a                 	TXA
+  1946  c9bc 2907               	AND #%00000111		; split off y-line
+  1947  c9be a8                 	TAY
   1948                          
-  1949  c9be b1a5               	LDA (gaddr),Y		; get pixels
-  1950  c9c0 45a8               	EOR fmode		; according to set/reset
-  1951  c9c2 8595               	STA tmpbits		; keep it for later
-  1952  c9c4 25a3               	AND tmpmask		; focus on masked pixels
-  1953  c9c6 08                 	PHP			; save Z flag
-  1954  c9c7 f004               	BEQ pop_stack		; all bits unset, remove from stack, because
+  1949  c9bf b1a5               	LDA (gaddr),Y		; get pixels
+  1950  c9c1 45a8               	EOR fmode		; according to set/reset
+  1951  c9c3 8595               	STA tmpbits		; keep it for later
+  1952  c9c5 25a3               	AND tmpmask		; focus on masked pixels
+  1953  c9c7 08                 	PHP			; save Z flag
+  1954  c9c8 f004               	BEQ pop_stack		; all bits unset, remove from stack, because
   1955                          				; it could be filled in one step!
-  1956  c9c9 c5a3               	CMP tmpmask		; all gaps filled?
-  1957  c9cb d00f               	BNE +++			; still some gaps (splitted pixels), leave on stack
+  1956  c9ca c5a3               	CMP tmpmask		; all gaps filled?
+  1957  c9cc d00f               	BNE +++			; still some gaps (splitted pixels), leave on stack
   1958                          	; all gaps filled, next on stack 
   1959                          pop_stack
-  1960  c9cd 38                 	SEC	
-  1961  c9ce a5fd               	LDA fstack		; remove entry from stack
-  1962  c9d0 e903               	SBC #fesize		; entry size
-  1963  c9d2 85fd               	STA fstack
-  1964  c9d4 b002               	BCS +
-  1965  c9d6 c6fe               	DEC fstack+1
-  1966  c9d8 28                 +	PLP			; all bits to fill empty?
-  1967  c9d9 d0bb               	BNE process_stack	; all masked bits are set, next stack element
+  1960  c9ce 38                 	SEC	
+  1961  c9cf a5fd               	LDA fstack		; remove entry from stack
+  1962  c9d1 e904               	SBC #fesize		; entry size
+  1963  c9d3 85fd               	STA fstack
+  1964  c9d5 b002               	BCS +
+  1965  c9d7 c6fe               	DEC fstack+1
+  1966  c9d9 28                 +	PLP			; all bits to fill empty?
+  1967  c9da d0ba               	BNE process_stack	; all masked bits are set, next stack element
   1968                          				; all bits unset,
-  1969  c9db 24                 	!by $24			; = bit $ll, skip next statement (1 byte)
+  1969  c9dc 24                 	!by $24			; = bit $ll, skip next statement (1 byte)
   1970                          				; stack already cleaned up
-  1971  c9dc 28                 +++	PLP			; notstack cleanup
+  1971  c9dd 28                 +++	PLP			; notstack cleanup
   1972                          
   1973                          !ifdef opt_space {
   1974                          	; Calculate the 8x8 block index from the the graphic address.
@@ -2028,20 +2028,20 @@
   1978                          	; x8 contains gaddr low and has bit 2 set as end marker, bit 0, 1 is cleared.
   1979                          	; (312/8) % 40  -> 39
   1980                          	; 1 00111.000 : 101000
-  1981  c9dd a5a6               	LDA gaddr+1		; divident high byte, mask out upper 3 bits
-  1982  c9df 291f               	AND #$1f		; range 0 to 1f3f
-  1983  c9e1 06a7               	ASL x8			; $1f always < 40
-  1984  c9e3 2a                 -	ROL			; shift into high byte, carry from low byte
-  1985  c9e4 c928               	CMP #40			; modulo 40
-  1986  c9e6 9002               	BCC +			; dividend less divisor
-  1987  c9e8 e928               	SBC #40			; greater or equal divisor, c=1
+  1981                          	LDA gaddr+1		; divident high byte, mask out upper 3 bits
+  1982                          	AND #$1f		; range 0 to 1f3f
+  1983                          	ASL x8			; $1f always < 40
+  1984                          -	ROL			; shift into high byte, carry from low byte
+  1985                          	CMP #40			; modulo 40
+  1986                          	BCC +			; dividend less divisor
+  1987                          	SBC #40			; greater or equal divisor, c=1
   1988                          				; nothing done to keep the quotient
-  1989  c9ea 06a7               +	ASL x8			; shift low byte divident
-  1990  c9ec d0f5               	BNE -			; if end-marker bit shifted out -> 0
-  1991  c9ee 85a7               	STA x8			; modulo in accu, stored to final location
+  1989                          +	ASL x8			; shift low byte divident
+  1990                          	BNE -			; if end-marker bit shifted out -> 0
+  1991                          	STA x8			; modulo in accu, stored to final location
   1992                          }
   1993                          
-  1994  c9f0 4cd9c8             	JMP f_line		; long (to far away) jump to fill line start
+  1994  c9de 4cd9c8             	JMP f_line		; long (to far away) jump to fill line start
   1995                          
   1996                          
   1997                          ; Check upper or lower fill path
@@ -2050,84 +2050,84 @@
   2000                          ;	destroys: A,X,Y
   2001                          
   2002                          fill_check
-  2003  c9f3 b1fb               	LDA (caddr),Y
-  2004  c9f5 45a8               	EOR fmode		; pixel data
-  2005  c9f7 aa                 	TAX			; save for later
-  2006  c9f8 25a3               	AND tmpmask		; mask to fill
-  2007  c9fa f013               	BEQ fc_cleared		; all masked pixels cleared?
-  2008  c9fc c5a3               	CMP tmpmask		; check for gaps
-  2009  c9fe f01b               	BEQ fc_exit		; all gaps filled, finished
+  2003  c9e1 b1fb               	LDA (caddr),Y
+  2004  c9e3 45a8               	EOR fmode		; pixel data
+  2005  c9e5 aa                 	TAX			; save for later
+  2006  c9e6 25a3               	AND tmpmask		; mask to fill
+  2007  c9e8 f013               	BEQ fc_cleared		; all masked pixels cleared?
+  2008  c9ea c5a3               	CMP tmpmask		; check for gaps
+  2009  c9ec f01b               	BEQ fc_exit		; all gaps filled, finished
   2010                          				; if not so, some pixels still set
-  2011  ca00 a5a3               	LDA tmpmask
+  2011  c9ee a5a3               	LDA tmpmask
   2012                          fc_checkstart			; no continuation, init flag based on
   2013                          				; rightmost pixel:
-  2014  ca02 4a                 	LSR			; mask bit 0 to carry
-  2015  ca03 9017               	BCC fc_nocont		; maskbit empty?
-  2016  ca05 8a                 	TXA			; pixel data
-  2017  ca06 4a                 	LSR			; pixel bit 0 to carry
-  2018  ca07 b013               	BCS fc_nocont		; bit 0 set
+  2014  c9f0 4a                 	LSR			; mask bit 0 to carry
+  2015  c9f1 9017               	BCC fc_nocont		; maskbit empty?
+  2016  c9f3 8a                 	TXA			; pixel data
+  2017  c9f4 4a                 	LSR			; pixel bit 0 to carry
+  2018  c9f5 b013               	BCS fc_nocont		; bit 0 set
   2019                          				; -> mask is 1 and pixel 0
   2020                          fc_cont
-  2021  ca09 a596               	LDA fcont		; set flag for continuation
-  2022  ca0b 0902               	ORA #%00000010		; mark in bit 1, store it, make a push
-  2023  ca0d d011               	BNE push_to_stack	; always non zero
+  2021  c9f7 a596               	LDA fcont		; set flag for continuation
+  2022  c9f9 0902               	ORA #%00000010		; mark in bit 1, store it, make a push
+  2023  c9fb d011               	BNE push_to_stack	; always non zero
   2024                          
   2025                          fc_cleared
-  2026  ca0f a5a3               	LDA tmpmask		; pixel & mask -> 0
+  2026  c9fd a5a3               	LDA tmpmask		; pixel & mask -> 0
   2027                          ;	BEQ fc_exit		; but if mask=0 we are done (never push!)
   2028                          				; the caller asserts that this never happens
-  2029  ca11 c9ff               	CMP #$ff		; full pixel line mask and all pixels cleared
-  2030  ca13 d0ed               	BNE fc_checkstart	; maybe a continuation ...
+  2029  c9ff c9ff               	CMP #$ff		; full pixel line mask and all pixels cleared
+  2030  ca01 d0ed               	BNE fc_checkstart	; maybe a continuation ...
   2031                          				; 8 pixel line empty
-  2032  ca15 a596               	LDA fcont		; continued gap?
-  2033  ca17 2902               	AND #%00000010		; check bit 2
-  2034  ca19 f0ee               	BEQ fc_cont		; new gap, start it and push on stack
-  2035  ca1b 60                 fc_exit	RTS			; gap continued and already on stack, leave
+  2032  ca03 a596               	LDA fcont		; continued gap?
+  2033  ca05 2902               	AND #%00000010		; check bit 2
+  2034  ca07 f0ee               	BEQ fc_cont		; new gap, start it and push on stack
+  2035  ca09 60                 fc_exit	RTS			; gap continued and already on stack, leave
   2036                          
   2037                          fc_nocont
-  2038  ca1c a596               	LDA fcont		; clear continuation flag
-  2039  ca1e 29fd               	AND #%11111101		; clear bit 2
+  2038  ca0a a596               	LDA fcont		; clear continuation flag
+  2039  ca0c 29fd               	AND #%11111101		; clear bit 2
   2040                          
   2041                          push_to_stack
-  2042  ca20 8596               	STA fcont
-  2043  ca22 18                 	CLC			; fstack points to top of stack
-  2044  ca23 a5fd               	LDA fstack		; to next free stack element
-  2045  ca25 6903               	ADC #fesize		; entry size
-  2046  ca27 85fd               	STA fstack
-  2047  ca29 9002               	BCC +
-  2048  ca2b e6fe               	INC fstack+1
+  2042  ca0e 8596               	STA fcont
+  2043  ca10 18                 	CLC			; fstack points to top of stack
+  2044  ca11 a5fd               	LDA fstack		; to next free stack element
+  2045  ca13 6904               	ADC #fesize		; entry size
+  2046  ca15 85fd               	STA fstack
+  2047  ca17 9002               	BCC +
+  2048  ca19 e6fe               	INC fstack+1
   2049                          +
-  2050  ca2d a534               	LDA strbot+1		; check stack space
-  2051  ca2f c5fe               	CMP fstack+1
-  2052  ca31 b008               	BCS ++			; strbot MSB >= fstack MSB, need more to check
+  2050  ca1b a534               	LDA strbot+1		; check stack space
+  2051  ca1d c5fe               	CMP fstack+1
+  2052  ca1f b008               	BCS ++			; strbot MSB >= fstack MSB, need more to check
   2053                          				; strbot MSB < fstack MSB
   2054                          out_of_memory			
-  2055  ca33 203fc2             	JSR gexit
-  2056  ca36 a210               	LDX #$10		; out of memory error
-  2057  ca38 6c0003             	JMP (v_baserr)		; basic error handler
-  2058  ca3b d006               ++	BNE fc_put		; <> -> (strbot > fstack)
-  2059  ca3d a5fd               	LDA fstack		; MSB equal, check LSB
-  2060  ca3f c533               	CMP strbot
-  2061  ca41 b0f0               	BCS out_of_memory	; fstack collides with string heap!
+  2055  ca21 203fc2             	JSR gexit
+  2056  ca24 a210               	LDX #$10		; out of memory error
+  2057  ca26 6c0003             	JMP (v_baserr)		; basic error handler
+  2058  ca29 d006               ++	BNE fc_put		; <> -> (strbot > fstack)
+  2059  ca2b a5fd               	LDA fstack		; MSB equal, check LSB
+  2060  ca2d c533               	CMP strbot
+  2061  ca2f b0f0               	BCS out_of_memory	; fstack collides with string heap!
   2062                          
   2063                          fc_put
-  2064  ca43 98                 	TYA			; y-line (value 0-7) merged with
-  2065  ca44 05fb               	ORA caddr		; graphic address low (bit 0-2 always empty)
-  2066  ca46 a000               	LDY #0			; stack structure index, on next free element
-  2067  ca48 91fd               	STA (fstack),Y
-  2068  ca4a c8                 	INY
-  2069  ca4b a5fc               	LDA caddr+1
-  2070  ca4d 91fd               	STA (fstack),Y		; graphic address high
-  2071  ca4f c8                 	INY
-  2072  ca50 a5a3               	LDA tmpmask
-  2073  ca52 91fd               	STA (fstack),Y
+  2064  ca31 98                 	TYA			; y-line (value 0-7) merged with
+  2065  ca32 05fb               	ORA caddr		; graphic address low (bit 0-2 always empty)
+  2066  ca34 a000               	LDY #0			; stack structure index, on next free element
+  2067  ca36 91fd               	STA (fstack),Y
+  2068  ca38 c8                 	INY
+  2069  ca39 a5fc               	LDA caddr+1
+  2070  ca3b 91fd               	STA (fstack),Y		; graphic address high
+  2071  ca3d c8                 	INY
+  2072  ca3e a5a3               	LDA tmpmask
+  2073  ca40 91fd               	STA (fstack),Y
   2074                          !ifndef opt_space {
-  2075                          	INY
-  2076                          	LDA x8			; 8x8 block position
-  2077                          	STA (fstack),Y
+  2075  ca42 c8                 	INY
+  2076  ca43 a5a7               	LDA x8			; 8x8 block position
+  2077  ca45 91fd               	STA (fstack),Y
   2078                          }
   2079                          	
-  2080  ca54 60                 	RTS
+  2080  ca47 60                 	RTS
   2081                          	
   2082                          
   2083                          
@@ -2138,25 +2138,25 @@
   2088                          
   2089                          unnew
   2090                          
-  2091  ca55 a52b               	LDA bassta
-  2092  ca57 8522               	STA str
-  2093  ca59 a52c               	LDA bassta+1
-  2094  ca5b 8523               	STA str+1
-  2095  ca5d a001               	LDY #1
-  2096  ca5f 98                 	TYA
-  2097  ca60 9122               	STA (str),y		; != 0
+  2091  ca48 a52b               	LDA bassta
+  2092  ca4a 8522               	STA str
+  2093  ca4c a52c               	LDA bassta+1
+  2094  ca4e 8523               	STA str+1
+  2095  ca50 a001               	LDY #1
+  2096  ca52 98                 	TYA
+  2097  ca53 9122               	STA (str),y		; != 0
   2098                          
-  2099  ca62 2033a5             	JSR b_rechain		; starting from bassta
+  2099  ca55 2033a5             	JSR b_rechain		; starting from bassta
   2100                          				; result in (str)
-  2101  ca65 18                 	CLC			; str+1 -> new basic end
-  2102  ca66 a423               	LDY str+1
-  2103  ca68 a522               	LDA str
-  2104  ca6a 6902               	ADC #2
-  2105  ca6c 852d               	STA basend
-  2106  ca6e 9001               	BCC +
-  2107  ca70 c8                 	INY
-  2108  ca71 842e               +	STY basend+1
-  2109  ca73 4c60a6             	JMP b_clr		; perform CLR
+  2101  ca58 18                 	CLC			; str+1 -> new basic end
+  2102  ca59 a423               	LDY str+1
+  2103  ca5b a522               	LDA str
+  2104  ca5d 6902               	ADC #2
+  2105  ca5f 852d               	STA basend
+  2106  ca61 9001               	BCC +
+  2107  ca63 c8                 	INY
+  2108  ca64 842e               +	STY basend+1
+  2109  ca66 4c60a6             	JMP b_clr		; perform CLR
   2110                          
   2111                          
   2112                          ;-----------------------------------------------------------------
