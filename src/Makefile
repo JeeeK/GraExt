@@ -9,7 +9,7 @@ F=graext
 FRUN=ge-run
 FLTC=graext-c000-ltc
 
-DIST_FILES=$(F).o $(F)+.o $(FRUN).prg $(FRUN)+.prg ge.prg ge+.prg g-ext18.prg debug.prg demo-v.prg demo-h-v.prg demo1.prg demo2.prg demo-star.prg gliding-lines.prg fill-demo.prg fill-demo2.prg fill-demo3.prg fill-butterfly.prg kreise.prg spirale.prg demo-test-1.prg butterfly-test.prg fill-all.prg
+DIST_FILES=$(F).o $(F)+.o $(FRUN).prg $(FRUN)+.prg ge.prg ge+.prg g-ext18.prg debug.prg demo-v.prg demo-h-v.prg demo1.prg demo2.prg demo-star.prg gliding-lines.prg fill-demo.prg fill-demo2.prg fill-demo3.prg fill-butterfly.prg kreise.prg spirale.prg demo-test-1.prg butterfly-test.prg fill-all.prg kreis.prg ellipse.prg kreis-ellipse.prg blume.prg
 
 .SUFFIXES: .prg .bas
 

@@ -199,6 +199,10 @@ Makefile		Erstellen von
 			make i
 				erstellt D64-Image x.d64
 
+blume.bas		Grafik-Demo: Blumenumriss, mit Zeitnehmung (Textformat)
+blume.prg		Grafik-Demo: Blumenumriss, mit Zeitnehmung (CBM-Format)
+blume.png		Grafik-Demo: Blumenumriss, Screenshot Endbild.
+
 butterfly-test.prg	Hires-Bitmap mit einem Schmetterling für fill-butterfly
 
 debug.bas		Grafik-Demo: Block-/Linien-Demo
@@ -224,6 +228,12 @@ demo-star.prg		Grafik-Demo: Stern (CBM-Format)
 
 demo-v.bas		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (Textformat)
 demo-v.prg		Grafik-Demo: Zeitmessung Schirmfüllen mit V-Linien (CBM-Format)
+
+ellipse.bas		Grafik-Demo: Ellipsenroutine,
+			Fehlerabweichungsalgorithmus mit8-fach-Spiegelung (Textformat)
+ellipse.prg		Grafik-Demo: Ellipsenroutine
+			Fehlerabweichungsalgorithmus mit8-fach-Spiegelung (CBM-Format)
+ellipse.png		Grafik-Demo: Ellipsenroutine, Screenshot Endbild.
 
 fill-butterfly.bas	Grafik-Demo: Lädt butterfly-test Hires-Bild und
 			füllt und löscht es mit Zeitmessung (Textformat)
@@ -303,8 +313,22 @@ graext+.r		ACME Report-Ausgabe der SYS-Variante,
 
 info.txt		diese Datei
 
-kreise.bas		Grafik-Demo: Kreise-Grafik (Textformat)
-kreise.prg		Grafik-Demo: Kreise-Grafik (CBM-Format)
+kreis.bas		Grafik-Demo: Kreisroutine, Fehlerabweichungsalgorithmus
+			mit 8-fach-Spiegelung (Textformat)
+kreis.prg		Grafik-Demo: Kreisroutine, Fehlerabweichungsalgorithmus
+			mit 8-fach-Spiegelung (CBM-Format)
+kreis.png		Grafik-Demo: Kreisroutine, Fehlerabweichungsalgorithmus
+			Screenshot Endbild.
+
+kreis-ellipse.bas	Grafik-Demo: Ellipsen abgeleitet von Kreisroutine,
+			Fehlerabweichungsalgorithmus mit 8-fach-Spiegelung (Textformat)
+kreis-ellipse.prg	Grafik-Demo: Ellipsen abgeleitet von Kreisroutine,
+			Fehlerabweichungsalgorithmus mit 8-fach-Spiegelung (CBM-Format)
+kreis-ellipse.png	Grafik-Demo: Ellipsen abgeleitet von Kreisroutine,
+			Screenshot Endbild.
+
+kreise.bas		Grafik-Demo: Kreise-Grafik, klassische Berechnung (Textformat)
+kreise.prg		Grafik-Demo: Kreise-Grafik, klassische Berechnung (CBM-Format)
 kreise.png		Grafik-Demo: Kreise-Grafik Screenshot Endbild.
 
 spirale.bas		Grafik-Demo: Spiral-Grafik (Textformat)
